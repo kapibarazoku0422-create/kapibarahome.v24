@@ -373,6 +373,8 @@ const YTDLP_FALLBACK = 'yt-dlp'; // PATH 上のバイナリ（環境変化時の
 const YTINFO_CACHE = new Map(); // vid -> { json, expires }
 const YTINFO_INFLIGHT = new Map(); // vid -> Promise（同一動画の重複起動を防ぐ）
 const YTINFO_CACHE_MAX = 500; // メモリ肥大防止（public エンドポイントの資源枯渇対策）
+const YTSEARCH_CACHE = new Map(); // normalized query -> { json, expires }
+const YTSEARCH_CACHE_MAX = 120;
 
 function cacheYtInfo(vid, payload, ttlMs) {
   // 古いエントリを間引いてから追加（簡易LRU: 挿入順）
@@ -540,36 +542,26 @@ function buildInfoFromYtDlp(data) {
   };
 }
 
-// 動画情報を解決する。
-// yt-dlpとInvidiousを並列実行し、ストリームURLはyt-dlp（自サーバーIP署名で確実に再生可）、
-// メタデータ（推奨動画・説明文など）はInvidious（より豊富）を使う。
-// InvidiousのストリームURLはInvidiousサーバーのIPで署名されているため
-// 我々のサーバーから直接取得すると弾かれる→使わない。
+// Invidiousを短時間先行させ、遅い時だけyt-dlpを起動するヘッジ方式。
+// 暗号化トークンとサーバー中継はどちらの経路でも共通。
 async function resolveYtInfo(vid) {
-  const [dlpResult, invResult] = await Promise.allSettled([
-    runYtDlp(vid).then(buildInfoFromYtDlp),
-    fetchInvidiousInfo(vid),
+  const valid = value => value?.streams?.length ? value : null;
+  const invPromise = fetchInvidiousInfo(vid).then(valid).catch(() => null);
+  const fastInv = await Promise.race([
+    invPromise,
+    new Promise(resolve => setTimeout(() => resolve(null), 700)),
   ]);
-  const dlp = dlpResult.status === 'fulfilled' ? dlpResult.value : null;
-  const inv = invResult.status === 'fulfilled' ? invResult.value : null;
-  if (dlpResult.status === 'rejected') console.warn('[ytinfo] yt-dlp failed:', dlpResult.reason?.message);
+  if (fastInv) {
+    console.log('[ytinfo] fast Invidious path streams=', fastInv.streams.length);
+    return fastInv;
+  }
 
-  // ストリーム: yt-dlp優先（自サーバーIP署名で確実）、失敗時はInvidious latest_version経由にフォールバック
-  const useDlp = dlp?.streams?.length > 0;
-  const streams = useDlp ? dlp.streams : (inv?.streams || []);
-  if (!streams.length) { console.error('[ytinfo] no streams for', vid); return null; }
-  console.log('[ytinfo]', useDlp ? `yt-dlp streams=${streams.length}` : `invidious fallback streams=${streams.length}`, inv ? '+ invidious meta' : '(no invidious)');
-
-  // メタデータ: Invidious優先（推奨動画・いいね数など豊富）
-  const meta = inv || dlp || {};
-  return {
-    title: meta.title || '', author: meta.author || '',
-    authorId: meta.authorId || '', viewCount: meta.viewCount || 0,
-    likeCount: meta.likeCount || 0, published: meta.published || 0,
-    description: (meta.description || '').slice(0, 2000),
-    streams,
-    recommended: meta.recommended || [],
-  };
+  const dlpPromise = runYtDlp(vid)
+    .then(buildInfoFromYtDlp).then(valid)
+    .catch(e => { console.warn('[ytinfo] yt-dlp failed:', e.message); return null; });
+  const info = await firstTruthy([invPromise, dlpPromise]);
+  if (!info) console.error('[ytinfo] no streams for', vid);
+  return info;
 }
 
 function decompress(buf, enc) {
@@ -1220,6 +1212,16 @@ Googleでログイン
     res.setHeader('access-control-allow-origin', '*');
     const q = new URL(url, 'http://x').searchParams.get('q');
     if (!q) { res.writeHead(400); return res.end('{"error":"missing q"}'); }
+    const searchKey = q.trim().toLocaleLowerCase('ja-JP').slice(0, 120);
+    const searchHit = YTSEARCH_CACHE.get(searchKey);
+    if (searchHit && searchHit.expires > Date.now()) {
+      res.writeHead(200, {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'private, max-age=60, stale-while-revalidate=120',
+        'x-kapibara-cache': 'HIT',
+      });
+      return res.end(searchHit.json);
+    }
 
     // YouTube 検索結果ページから ytInitialData を解析
     try {
@@ -1275,8 +1277,17 @@ Googleでログイン
         if (videos.length >= 20) break;
       }
 
-      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=60' });
-      return res.end(JSON.stringify(videos));
+      const searchJson = JSON.stringify(videos);
+      if (YTSEARCH_CACHE.size >= YTSEARCH_CACHE_MAX) {
+        YTSEARCH_CACHE.delete(YTSEARCH_CACHE.keys().next().value);
+      }
+      YTSEARCH_CACHE.set(searchKey, { json: searchJson, expires: Date.now() + 2 * 60 * 1000 });
+      res.writeHead(200, {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'private, max-age=60, stale-while-revalidate=120',
+        'x-kapibara-cache': 'MISS',
+      });
+      return res.end(searchJson);
     } catch (e) {
       console.error('[ytsearch] error:', e.message);
       res.writeHead(502, { 'content-type': 'application/json' });
