@@ -103,11 +103,14 @@ const CLASSROOM_CLASS_ID   = process.env.CLASSROOM_CLASS_ID || '868294163023';
 const AUTH_BYPASS = ['/auth/', '/assets/', '/monaco-min/', '/favicon.ico', '/apple-touch-icon', '/manifest'];
 
 function getOAuthBase(req) {
-  // x-forwarded-host を優先（Replitプロキシ経由でHostが書き換わる場合に対応）
+  // Render/Replitなどのリバースプロキシが通知する公開URLを優先する。
   const host = req.headers['x-forwarded-host'] || req.headers['host'] || '';
-  if (host.includes('kapibarahome.com')) return 'https://kapibarahome.com';
-  if (host.includes('replit.app'))       return `https://${host}`;
-  return `http://${host}`;
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '')
+    .split(',')[0].trim().toLowerCase();
+  const isHostedHttps = host.includes('kapibarahome.com') ||
+    host.includes('replit.app') || host.includes('onrender.com');
+  const protocol = forwardedProto === 'https' || isHostedHttps ? 'https' : 'http';
+  return `${protocol}://${host}`;
 }
 
 async function getAuthSession(req) {
