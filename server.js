@@ -574,36 +574,6 @@ function decompress(buf, enc) {
   return buf;
 }
 
-// YouTube has used multiple nested renderers for Shorts. Walk the full response
-// so a layout change does not silently break discovery.
-function collectShortVideos(node, videos, seen) {
-  if (!node || typeof node !== 'object' || videos.length >= 24) return;
-  const reel = node.reelItemRenderer;
-  const lockup = node.shortsLockupViewModel;
-  const regular = node.videoRenderer;
-  const videoId = reel?.videoId
-    || lockup?.onTap?.innertubeCommand?.reelWatchEndpoint?.videoId
-    || lockup?.onTap?.innertubeCommand?.watchEndpoint?.videoId
-    || (typeof lockup?.entityId === 'string' ? lockup.entityId.match(/([A-Za-z0-9_-]{11})$/)?.[1] : '')
-    || regular?.videoId;
-  if (videoId && /^[A-Za-z0-9_-]{11}$/.test(videoId) && !seen.has(videoId)) {
-    seen.add(videoId);
-    videos.push({
-      videoId,
-      title: reel?.headline?.simpleText || reel?.headline?.runs?.[0]?.text
-        || lockup?.overlayMetadata?.primaryText?.content
-        || regular?.title?.runs?.[0]?.text || regular?.title?.simpleText || '',
-      author: reel?.channelName?.simpleText
-        || lockup?.overlayMetadata?.secondaryText?.content
-        || regular?.ownerText?.runs?.[0]?.text || '',
-      thumbToken: sealImg(`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`),
-      lengthSeconds: 0,
-      viewCount: 0,
-    });
-  }
-  for (const value of Object.values(node)) collectShortVideos(value, videos, seen);
-}
-
 const server = http.createServer(async (req, res) => {
   // ヘルスチェック用（Replitデプロイのヘルスチェックが500で落ちないよう最優先）
   if (req.url === '/health' || req.url === '/healthz') {
@@ -1187,29 +1157,40 @@ Googleでログイン
     }
     try {
       // Shorts検索: YouTubeの shorts フィルタ(EgIQAQ==はショートのsp値: sp=EgQKAhAB)
-      const spShort = 'EgQKAhAB%3D%3D'; // type=short filter
-      const searchQ = q || 'shorts';
-      const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQ)}&sp=${spShort}`;
-      const { statusCode, body } = await request(ytUrl, {
-        method: 'GET',
-        headers: {
-          'user-agent': UA,
-          'accept-language': 'ja,en;q=0.9',
-          'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'accept-encoding': 'gzip, deflate',
-          'cookie': 'CONSENT=YES+; SOCS=CAESEwgDEgk0ODE3Nzk3MjgaAmphIAE',
-        },
-        headersTimeout: 10000,
-        bodyTimeout: 15000,
+      const searchQ = q ? `${q} shorts` : '#shorts';
+      const videos = await raceInv(async host => {
+        try {
+          const endpoint = `${host}/api/v1/search?q=${encodeURIComponent(searchQ)}&type=video&duration=short&sort_by=relevance`;
+          const { statusCode, body } = await request(endpoint, {
+            headers: { 'user-agent': UA, 'accept': 'application/json' },
+            headersTimeout: 6000,
+            bodyTimeout: 9000,
+          });
+          const chunks = []; for await (const c of body) chunks.push(c);
+          if (statusCode !== 200) return null;
+          let data; try { data = JSON.parse(Buffer.concat(chunks).toString()); } catch { return null; }
+          if (!Array.isArray(data)) return null;
+          const seen = new Set();
+          const out = [];
+          for (const v of data) {
+            const id = v?.videoId;
+            const seconds = Number(v?.lengthSeconds || 0);
+            if (!/^[A-Za-z0-9_-]{11}$/.test(id || '') || seen.has(id) || (seconds && seconds > 240)) continue;
+            seen.add(id);
+            const remoteThumb = (v.videoThumbnails || []).find(t => t.quality === 'medium')?.url
+              || (v.videoThumbnails || []).slice(-1)[0]?.url
+              || `${host}/vi/${id}/hqdefault.jpg`;
+            out.push({
+              videoId: id, title: v.title || '', author: v.author || '',
+              thumbToken: sealImg(new URL(remoteThumb, host).href),
+              lengthSeconds: seconds, viewCount: Number(v.viewCount || 0),
+            });
+            if (out.length >= 24) break;
+          }
+          return out.length ? out : null;
+        } catch { return null; }
       });
-      const rawChunks = []; for await (const c of body) rawChunks.push(c);
-      const html = decompress(Buffer.concat(rawChunks), 'gzip').toString('utf-8');
-      const match = html.match(/var ytInitialData\s*=\s*(\{.+?\});\s*(?:var |<\/script>)/s);
-      if (!match) throw new Error('ytInitialData not found');
-      const ytData = JSON.parse(match[1]);
-      const videos = [];
-      collectShortVideos(ytData, videos, new Set());
-      if (!videos.length) throw new Error('Shorts data not found');
+      if (!videos?.length) throw new Error('Shorts data not found');
       const json = JSON.stringify(videos);
       if (YTSHORTS_CACHE.size >= YTSEARCH_CACHE_MAX) {
         YTSHORTS_CACHE.delete(YTSHORTS_CACHE.keys().next().value);
@@ -1243,59 +1224,33 @@ Googleでログイン
       return res.end(searchHit.json);
     }
 
-    // YouTube 検索結果ページから ytInitialData を解析
+    // 検索はYouTube公式ページ/APIへ接続せず、Invidious互換APIだけを使う。
     try {
-      const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}&sp=EgIQAQ%3D%3D`;
-      const { statusCode, body } = await request(ytUrl, {
-        method: 'GET',
-        headers: {
-          'user-agent': UA,
-          'accept-language': 'ja,en;q=0.9',
-          'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'accept-encoding': 'gzip, deflate',
-          'cookie': 'CONSENT=YES+; SOCS=CAESEwgDEgk0ODE3Nzk3MjgaAmphIAE',
-        },
-        headersTimeout: 10000,
-        bodyTimeout: 15000,
-      });
-      const rawChunks = []; for await (const c of body) rawChunks.push(c);
-      const html = decompress(Buffer.concat(rawChunks), 'gzip').toString('utf-8');
-
-      // ytInitialData = {...}; を抽出
-      const match = html.match(/var ytInitialData\s*=\s*(\{.+?\});\s*(?:var |<\/script>)/s);
-      if (!match) throw new Error('ytInitialData not found');
-      const ytData = JSON.parse(match[1]);
-
-      // 動画リストを取り出す
-      const section = ytData?.contents
-        ?.twoColumnSearchResultsRenderer?.primaryContents
-        ?.sectionListRenderer?.contents ?? [];
-      const videos = [];
-      for (const s of section) {
-        const items = s?.itemSectionRenderer?.contents ?? [];
-        for (const item of items) {
-          const v = item?.videoRenderer;
-          if (!v?.videoId) continue;
-          const durText = v.lengthText?.simpleText ?? '0:00';
-          const durParts = durText.split(':').map(Number);
-          const secs = durParts.length === 3
-            ? durParts[0]*3600 + durParts[1]*60 + durParts[2]
-            : durParts.length === 2 ? durParts[0]*60 + durParts[1] : 0;
-          const viewText = v.viewCountText?.simpleText ?? '';
-          const viewNum = parseInt(viewText.replace(/[^0-9]/g, '')) || 0;
-          const vid2 = v.videoId;
-          videos.push({
-            videoId: vid2,
-            title: v.title?.runs?.[0]?.text ?? '',
-            author: v.ownerText?.runs?.[0]?.text ?? '',
-            lengthSeconds: secs,
-            viewCount: viewNum,
-            thumbToken: sealImg(`https://i.ytimg.com/vi/${vid2}/mqdefault.jpg`),
+      const videos = await raceInv(async host => {
+        try {
+          const endpoint = `${host}/api/v1/search?q=${encodeURIComponent(q)}&type=video&sort_by=relevance`;
+          const { statusCode, body } = await request(endpoint, {
+            headers: { 'user-agent': UA, 'accept': 'application/json' },
+            headersTimeout: 6000, bodyTimeout: 9000,
           });
-          if (videos.length >= 20) break;
-        }
-        if (videos.length >= 20) break;
-      }
+          const chunks = []; for await (const c of body) chunks.push(c);
+          if (statusCode !== 200) return null;
+          let data; try { data = JSON.parse(Buffer.concat(chunks).toString()); } catch { return null; }
+          if (!Array.isArray(data)) return null;
+          const out = data.filter(v => /^[A-Za-z0-9_-]{11}$/.test(v?.videoId || '')).slice(0, 20).map(v => {
+            const remoteThumb = (v.videoThumbnails || []).find(t => t.quality === 'medium')?.url
+              || (v.videoThumbnails || []).slice(-1)[0]?.url
+              || `${host}/vi/${v.videoId}/mqdefault.jpg`;
+            return {
+              videoId: v.videoId, title: v.title || '', author: v.author || '',
+              lengthSeconds: Number(v.lengthSeconds || 0), viewCount: Number(v.viewCount || 0),
+              thumbToken: sealImg(new URL(remoteThumb, host).href),
+            };
+          });
+          return out.length ? out : null;
+        } catch { return null; }
+      });
+      if (!videos?.length) throw new Error('search data not found');
 
       const searchJson = JSON.stringify(videos);
       if (YTSEARCH_CACHE.size >= YTSEARCH_CACHE_MAX) {
