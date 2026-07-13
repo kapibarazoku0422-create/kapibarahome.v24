@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>動画 — カピバラproxy</title>
+<meta name="theme-color" content="#0f0f0f">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:#0f0f0f;color:#f1f1f1;font-family:system-ui,'Segoe UI',Roboto,sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+
+/* ── Header ── */
+.bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#212121;
+     border-bottom:1px solid #3a3a3a;position:sticky;top:0;z-index:100}
+.back{font-size:13px;color:#aaa;padding:5px 10px;border-radius:6px;white-space:nowrap;background:none;border:none}
+.back:hover{background:#3f3f3f;color:#fff}
+.bar-title{flex:1;font-size:13px;color:#f1f1f1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0 4px}
+.bar-btns{display:flex;gap:2px;flex-shrink:0}
+.bar-btns button{background:none;border:none;color:#aaa;font-size:17px;padding:5px 8px;border-radius:6px;line-height:1}
+.bar-btns button:hover{background:#3f3f3f;color:#fff}
+
+/* ── Layout ── */
+.layout{display:flex;gap:24px;max-width:1280px;margin:0 auto;padding:20px 16px;align-items:flex-start}
+.main-col{flex:1;min-width:0}
+.side-col{width:360px;flex-shrink:0}
+@media(max-width:1000px){.side-col{display:none}}
+body.theater .layout{max-width:100%;padding:0;gap:0}
+body.theater .side-col{display:none}
+body.theater .main-col{padding:0}
+
+/* ── Player ── */
+.player-box{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden}
+body.theater .player-box{border-radius:0}
+video{width:100%;height:100%;display:block;outline:none}
+/* Shorts: 縦型プレイヤー */
+body.shorts-mode .player-box{aspect-ratio:9/16;max-width:420px;margin:0 auto}
+body.shorts-mode .layout{justify-content:center}
+body.shorts-mode .main-col{max-width:420px}
+.shorts-badge{display:none;align-items:center;gap:6px;background:#f00;color:#fff;
+              font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;margin-right:4px}
+body.shorts-mode .shorts-badge{display:flex}
+.loading-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+                 background:rgba(0,0,0,.7);z-index:5;pointer-events:none}
+.spinner{width:44px;height:44px;border:4px solid rgba(255,255,255,.2);
+         border-top-color:#f00;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.err-box{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;
+         justify-content:center;gap:12px;background:rgba(0,0,0,.9);z-index:6}
+.err-msg{color:#f87171;font-size:14px;text-align:center;padding:0 24px;line-height:1.5}
+.err-box button{padding:9px 22px;background:#3f3f3f;border:none;border-radius:8px;color:#fff;font-size:13px;cursor:pointer}
+.err-box button:hover{background:#555}
+.mid-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+          pointer-events:none;z-index:7;font-size:64px;opacity:0}
+.mid-icon.pop{animation:mpop .55s forwards}
+@keyframes mpop{0%{opacity:.9;transform:scale(.7)}50%{opacity:.9;transform:scale(1.05)}100%{opacity:0;transform:scale(1)}}
+
+/* ── Info box ── */
+.info-box{padding:14px 2px 0}
+.vid-title{font-size:18px;font-weight:700;line-height:1.4;margin-bottom:8px}
+.meta-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;color:#aaa;margin-bottom:12px}
+.meta-dot{color:#555}
+.ch-name{font-weight:600;color:#d0d0d0}
+
+/* ── Action bar ── */
+.action-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.like-pill{display:flex;align-items:center;background:#272727;border-radius:99px;overflow:hidden;border:1px solid #404040}
+.like-pill button{display:flex;align-items:center;gap:5px;background:none;border:none;
+                  color:#f1f1f1;font-size:13px;padding:8px 16px;white-space:nowrap}
+.like-pill button:hover{background:#3f3f3f}
+.like-sep{width:1px;height:22px;background:#404040;flex-shrink:0}
+.act-btn{display:flex;align-items:center;gap:5px;background:#272727;border:1px solid #404040;
+         border-radius:99px;color:#f1f1f1;font-size:13px;padding:8px 16px;white-space:nowrap}
+.act-btn:hover{background:#3f3f3f}
+.act-btn.active{background:#4a4a4a;border-color:#888}
+.act-sel{background:#272727;border:1px solid #404040;border-radius:99px;color:#f1f1f1;
+         font-size:13px;padding:7px 14px;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none}
+.act-sel:hover{background:#3f3f3f}
+
+/* ── Description ── */
+.desc-box{background:#272727;border-radius:12px;padding:14px;margin-bottom:16px}
+.desc-date{font-size:13px;font-weight:700;margin-bottom:7px;color:#f1f1f1}
+.desc-text{font-size:13px;color:#ccc;line-height:1.65;white-space:pre-wrap;word-break:break-word;
+           max-height:80px;overflow:hidden;transition:max-height .3s ease}
+.desc-text.open{max-height:3000px}
+.desc-text a{color:#3ea6ff}
+.desc-text a:hover{text-decoration:underline}
+.desc-toggle{display:block;font-size:13px;font-weight:700;color:#aaa;background:none;border:none;
+             padding:8px 0 0;width:100%;text-align:left}
+.desc-toggle:hover{color:#fff}
+
+/* ── Tabs ── */
+.tabs{display:flex;border-bottom:1px solid #3a3a3a;margin-bottom:16px}
+.tab{background:none;border:none;color:#aaa;font-size:14px;font-weight:600;padding:10px 18px;
+     border-bottom:2px solid transparent;margin-bottom:-1px;transition:.15s;cursor:pointer}
+.tab:hover{color:#fff}
+.tab.active{color:#fff;border-bottom-color:#f00}
+
+/* ── Comments ── */
+.comment{display:flex;gap:10px;margin-bottom:20px}
+.c-av{width:36px;height:36px;border-radius:50%;background:#404040;flex-shrink:0;
+      overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:16px}
+.c-av img{width:100%;height:100%;object-fit:cover}
+.c-body{flex:1;min-width:0}
+.c-header{display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap}
+.c-author{font-size:13px;font-weight:600;color:#f1f1f1}
+.c-time{font-size:12px;color:#aaa}
+.c-pin{font-size:11px;color:#3ea6ff}
+.c-text{font-size:14px;line-height:1.55;color:#f1f1f1;white-space:pre-wrap;word-break:break-word}
+.c-likes{font-size:12px;color:#aaa;margin-top:5px}
+.c-heart{color:#f87171}
+
+/* ── Related (main tab, mobile) ── */
+.rel-card{display:flex;gap:10px;margin-bottom:10px;cursor:pointer;border-radius:8px;padding:6px;transition:.12s}
+.rel-card:hover{background:#272727}
+.rel-thumb{position:relative;width:160px;flex-shrink:0;aspect-ratio:16/9;border-radius:6px;overflow:hidden;background:#272727}
+.rel-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.rel-dur{position:absolute;bottom:4px;right:5px;background:rgba(0,0,0,.85);color:#fff;font-size:11px;padding:1px 5px;border-radius:3px;font-weight:600}
+.rel-info{flex:1;min-width:0}
+.rel-title{font-size:13px;font-weight:600;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#f1f1f1;margin-bottom:3px}
+.rel-ch{font-size:12px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rel-views{font-size:11px;color:#aaa;margin-top:2px}
+@media(max-width:500px){.rel-thumb{width:120px}.rel-title{font-size:12px}}
+
+/* ── Side panel ── */
+.side-title{font-size:15px;font-weight:700;margin-bottom:12px;color:#f1f1f1;padding-bottom:8px;border-bottom:1px solid #3a3a3a}
+.side-card{display:flex;gap:8px;margin-bottom:8px;cursor:pointer;border-radius:8px;padding:5px;transition:.12s}
+.side-card:hover{background:#272727}
+.side-thumb{position:relative;width:120px;flex-shrink:0;aspect-ratio:16/9;border-radius:6px;overflow:hidden;background:#272727}
+.side-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.side-dur{position:absolute;bottom:3px;right:4px;background:rgba(0,0,0,.85);color:#fff;font-size:10px;padding:1px 4px;border-radius:3px;font-weight:600}
+.side-info{flex:1;min-width:0}
+.side-card-title{font-size:12px;font-weight:600;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#f1f1f1;margin-bottom:2px}
+.side-card-ch{font-size:11px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── Utils ── */
+.empty{text-align:center;color:#555;font-size:13px;padding:28px 0}
+.load-more{text-align:center;padding:14px 0}
+.load-more button{background:#272727;border:1px solid #404040;border-radius:8px;color:#f1f1f1;padding:9px 22px;font-size:13px}
+.load-more button:hover{background:#3f3f3f}
+.sec-spinner{text-align:center;padding:20px 0;color:#555;font-size:13px}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(16px);
+       background:#f1f1f1;color:#0f0f0f;padding:10px 22px;border-radius:99px;font-size:14px;
+       font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;
+       z-index:9999;white-space:nowrap;max-width:90vw;text-overflow:ellipsis;overflow:hidden}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── Keyboard shortcuts modal ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;
+          justify-content:center;z-index:1000;padding:16px}
+.modal-bg.open{display:flex}
+.modal{background:#212121;border-radius:16px;padding:24px;max-width:420px;width:100%}
+.modal h2{font-size:17px;font-weight:700;margin-bottom:18px}
+.sc-grid{display:grid;grid-template-columns:auto 1fr;gap:7px 18px;font-size:13px;margin-bottom:20px}
+.sc-key{background:#3f3f3f;padding:3px 12px;border-radius:6px;text-align:center;
+        font-family:monospace;color:#f1f1f1;white-space:nowrap;display:flex;align-items:center;justify-content:center}
+.sc-desc{color:#aaa;display:flex;align-items:center}
+.modal-close{width:100%;padding:10px;background:#3f3f3f;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600}
+.modal-close:hover{background:#555}
+</style>
+<script src="/assets/hls.min.js"></script>
+</head>
+<body>
+
+<div class="bar">
+  <button class="back" onclick="location.href='/yt'">← 検索</button>
+  <span class="shorts-badge">▶ Shorts</span>
+  <span class="bar-title" id="barTitle">読み込み中…</span>
+  <div class="bar-btns">
+    <button id="btnTheater" title="シアターモード [T]" onclick="toggleTheater()">⛶</button>
+    <button title="キーボードショートカット [?]" onclick="document.getElementById('scModal').classList.add('open')">⌨️</button>
+  </div>
+</div>
+
+<div class="layout" id="layout">
+  <div class="main-col">
+    <div class="player-box" id="playerBox">
+      <div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div></div>
+      <div class="err-box" id="errBox">
+        <div class="err-msg" id="errMsg">動画を読み込めませんでした</div>
+        <button onclick="retryLoad()">再試行</button>
+      </div>
+      <video id="vid" controls playsinline preload="metadata"></video>
+      <div class="mid-icon" id="midIcon"></div>
+    </div>
+
+    <div class="info-box" id="infoBox" style="display:none">
+      <div class="vid-title" id="vidTitle"></div>
+      <div class="meta-row">
+        <span class="ch-name" id="chName"></span>
+        <span class="meta-dot">·</span>
+        <span id="vidViews"></span>
+        <span class="meta-dot" id="vidDateDot">·</span>
+        <span id="vidDate"></span>
+      </div>
+
+      <div class="action-bar">
+        <div class="like-pill">
+          <button id="btnLike">👍 <span id="likeCount">－</span></button>
+          <div class="like-sep"></div>
+          <button id="btnDislike">👎 <span id="dislikeCount">－</span></button>
+        </div>
+        <button class="act-btn" onclick="shareVideo()">🔗 シェア</button>
+        <button class="act-btn" id="btnLoop" onclick="toggleLoop()">🔁 ループ</button>
+        <button class="act-btn" id="btnPiP" onclick="togglePiP()">⧉ PiP</button>
+        <select class="act-sel" id="speedSel" title="再生速度">
+          <option value="0.25">0.25x</option>
+          <option value="0.5">0.5x</option>
+          <option value="0.75">0.75x</option>
+          <option value="1" selected>通常</option>
+          <option value="1.25">1.25x</option>
+          <option value="1.5">1.5x</option>
+          <option value="1.75">1.75x</option>
+          <option value="2">2x</option>
+        </select>
+        <select class="act-sel" id="qualSel" style="display:none" title="画質"></select>
+      </div>
+
+      <div class="desc-box" id="descBox" style="display:none">
+        <div class="desc-date" id="descDate"></div>
+        <div class="desc-text" id="descText"></div>
+        <button class="desc-toggle" id="descToggle" onclick="toggleDesc()">もっと見る ▾</button>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" id="tabComments" onclick="switchTab('comments')">💬 コメント</button>
+        <button class="tab" id="tabRelated" onclick="switchTab('related')">▶ 関連動画</button>
+      </div>
+      <div id="panel-comments">
+        <div id="commentsInner"><div class="sec-spinner">読み込み中…</div></div>
+      </div>
+      <div id="panel-related" style="display:none">
+        <div id="relatedInner"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="side-col">
+    <div class="side-title">次の動画</div>
+    <div id="sideRelated"><div class="sec-spinner">読み込み中…</div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-bg" id="scModal" onclick="this.classList.remove('open')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h2>⌨️ キーボードショートカット</h2>
+    <div class="sc-grid">
+      <span class="sc-key">Space / K</span><span class="sc-desc">再生 / 一時停止</span>
+      <span class="sc-key">← / J</span><span class="sc-desc">10秒 戻る</span>
+      <span class="sc-key">→ / L</span><span class="sc-desc">10秒 進む</span>
+      <span class="sc-key">↑</span><span class="sc-desc">音量 +10%</span>
+      <span class="sc-key">↓</span><span class="sc-desc">音量 -10%</span>
+      <span class="sc-key">M</span><span class="sc-desc">ミュート切替</span>
+      <span class="sc-key">F</span><span class="sc-desc">フルスクリーン</span>
+      <span class="sc-key">T</span><span class="sc-desc">シアターモード</span>
+      <span class="sc-key">0 〜 9</span><span class="sc-desc">0% 〜 90% へ移動</span>
+      <span class="sc-key">?</span><span class="sc-desc">このヘルプ</span>
+    </div>
+    <button class="modal-close" onclick="document.getElementById('scModal').classList.remove('open')">閉じる</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+var _sp = new URLSearchParams(location.search);
+var videoId = (function(){ try { return atob(_sp.get('v')||''); } catch(e) { return _sp.get('v')||''; } })();
+var isShorts = _sp.get('short') === '1';
+if (isShorts) document.body.classList.add('shorts-mode');
+var streams = [];
+var recommended = [];
+var commentsLoaded = false;
+var continuationToken = null;
+var loadingMoreComments = false;
+var didFreshRetry = false;
+var isLooping = false;
+var descExpanded = false;
+var activeTab = 'comments';
+var vid = document.getElementById('vid');
+var hlsInstance = null;
+
+/* ─ Utilities ─ */
+function pad(n){ return String(n).padStart(2,'0'); }
+function fmt(sec) {
+  sec = parseInt(sec) || 0;
+  var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  return h ? h+':'+pad(m)+':'+pad(s) : m+':'+pad(s);
+}
+function fmtViews(n) {
+  n = parseInt(n)||0;
+  if(n>=1e8) return Math.floor(n/1e8)+'億回視聴';
+  if(n>=1e4) return Math.floor(n/1e4)+'万回視聴';
+  return n.toLocaleString()+'回視聴';
+}
+function fmtNum(n) {
+  n = parseInt(n)||0;
+  if(n>=1e8) return (n/1e8).toFixed(1)+'億';
+  if(n>=1e4) return Math.floor(n/1e4)+'万';
+  return n.toLocaleString();
+}
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function thumb(id, token){ return token ? '/img/'+token : '/thumb/'+encodeURIComponent(id); }
+function showToast(msg, ms) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t); t._t = setTimeout(function(){ t.classList.remove('show'); }, ms||2200);
+}
+function showMidIcon(e) {
+  var el = document.getElementById('midIcon');
+  el.textContent = e; el.className = 'mid-icon';
+  void el.offsetWidth; el.className = 'mid-icon pop';
+}
+
+/* ─ Player controls ─ */
+function seekBy(s) {
+  vid.currentTime = Math.max(0, Math.min(vid.duration||0, vid.currentTime+s));
+  showMidIcon(s>0?'⏩':'⏪');
+}
+function toggleLoop() {
+  isLooping = !isLooping; vid.loop = isLooping;
+  document.getElementById('btnLoop').classList.toggle('active', isLooping);
+  showToast(isLooping ? '🔁 ループ ON' : 'ループ OFF');
+}
+function togglePiP() {
+  if (!document.pictureInPictureEnabled) { showToast('PiP 未対応ブラウザです'); return; }
+  if (document.pictureInPictureElement) {
+    document.exitPictureInPicture().catch(function(){});
+  } else {
+    vid.requestPictureInPicture().catch(function(e){ showToast('PiP: '+e.message); });
+  }
+}
+function toggleTheater() {
+  document.body.classList.toggle('theater');
+  showToast(document.body.classList.contains('theater') ? 'シアターモード ON' : 'シアターモード OFF');
+}
+function shareVideo() {
+  var url = location.origin + '/ytw?v='+btoa(videoId);
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(function(){ showToast('🔗 URLをコピーしました'); });
+  } else {
+    showToast(url);
+  }
+}
+document.getElementById('speedSel').addEventListener('change', function() {
+  vid.playbackRate = parseFloat(this.value);
+  showToast('▶ '+this.options[this.selectedIndex].text);
+});
+document.getElementById('qualSel').addEventListener('change', function() {
+  applyStream(parseInt(this.value));
+});
+
+/* ─ Keyboard shortcuts ─ */
+document.addEventListener('keydown', function(e) {
+  var tag = e.target.tagName;
+  if (tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
+  switch(e.key) {
+    case ' ': case 'k': case 'K':
+      e.preventDefault();
+      if (vid.paused) { vid.play(); showMidIcon('▶'); } else { vid.pause(); showMidIcon('⏸'); }
+      break;
+    case 'ArrowLeft': case 'j': case 'J': e.preventDefault(); seekBy(-10); break;
+    case 'ArrowRight': case 'l': case 'L': e.preventDefault(); seekBy(10); break;
+    case 'ArrowUp': e.preventDefault();
+      vid.volume = Math.min(1, vid.volume+0.1);
+      showToast('🔊 '+Math.round(vid.volume*100)+'%'); break;
+    case 'ArrowDown': e.preventDefault();
+      vid.volume = Math.max(0, vid.volume-0.1);
+      showToast('🔉 '+Math.round(vid.volume*100)+'%'); break;
+    case 'm': case 'M':
+      vid.muted = !vid.muted; showToast(vid.muted ? '🔇 ミュート' : '🔊 ミュート解除'); break;
+    case 'f': case 'F':
+      if (!document.fullscreenElement) {
+        document.getElementById('playerBox').requestFullscreen().catch(function(){});
+      } else { document.exitFullscreen().catch(function(){}); }
+      break;
+    case 't': case 'T': toggleTheater(); break;
+    case '?': document.getElementById('scModal').classList.add('open'); break;
+    default:
+      if (e.key>='0'&&e.key<='9') {
+        var pct = parseInt(e.key)/10;
+        vid.currentTime = (vid.duration||0)*pct;
+        showToast(Math.round(pct*100)+'%');
+      }
+  }
+});
+
+/* ─ Error handling ─ */
+function showErr(msg) {
+  document.getElementById('loadingOverlay').style.display = 'none';
+  var eb = document.getElementById('errBox');
+  eb.style.display = 'flex';
+  document.getElementById('errMsg').textContent = msg || '動画を読み込めませんでした';
+}
+function retryLoad() {
+  if (hlsInstance) { try { hlsInstance.destroy(); } catch(e){} hlsInstance = null; }
+  document.getElementById('vid').style.display = '';
+  document.getElementById('errBox').style.display = 'none';
+  document.getElementById('loadingOverlay').style.display = 'flex';
+  didFreshRetry = false; loadInfo();
+}
+/* ─ sennintube式 スタック検出 + 自動再接続 ─ */
+var loadStuckTimer = null;
+
+// 同じURLのままTCPを張り直す（ISGC接続断対策）
+function reloadVideoSource() {
+  var t = vid.currentTime;
+  var wasPaused = vid.paused;
+  showToast('再接続中...');
+  if (hlsInstance) {
+    // hls.js: バッファを破棄して再ロード
+    hlsInstance.stopLoad();
+    hlsInstance.startLoad(Math.max(0, t - 2));
+    if (!wasPaused) vid.play().catch(function(){});
+  } else {
+    vid.load();
+    vid.addEventListener('loadedmetadata', function rm() {
+      vid.removeEventListener('loadedmetadata', rm);
+      vid.currentTime = t;
+      if (!wasPaused) vid.play().catch(function(){});
+    });
+  }
+}
+
+// 再生が開始されたらスタックタイマーをリセット・フレッシュリトライフラグもリセット
+vid.addEventListener('playing', function() {
+  clearTimeout(loadStuckTimer); loadStuckTimer = null;
+  didFreshRetry = false;
+  document.getElementById('loadingOverlay').style.display = 'none';
+});
+vid.addEventListener('canplay',  function() { document.getElementById('loadingOverlay').style.display = 'none'; });
+
+// play開始5秒後もreadyState<3なら即再接続（sennintube: play event check）
+vid.addEventListener('play', function() {
+  clearTimeout(loadStuckTimer);
+  loadStuckTimer = setTimeout(function() {
+    if (vid.currentTime === 0 && vid.readyState < 3) {
+      reloadVideoSource();
+    }
+  }, 5000);
+});
+
+// バッファ待ち（waiting）が8秒続いたら再接続（sennintube: waiting event check）
+vid.addEventListener('waiting', function() {
+  document.getElementById('loadingOverlay').style.display = 'flex';
+  if (!loadStuckTimer) {
+    loadStuckTimer = setTimeout(function() {
+      if (!vid.paused) reloadVideoSource();
+    }, 8000);
+  }
+});
+
+vid.addEventListener('error', function() {
+  clearTimeout(loadStuckTimer); loadStuckTimer = null;
+  if (vid.currentTime > 5) {
+    try { localStorage.setItem(posKey, Math.floor(vid.currentTime)); } catch(e){}
+  }
+  var qs = document.getElementById('qualSel');
+  var next = parseInt(qs.value||'0')+1;
+  if (next < streams.length) { qs.value = next; applyStream(next); }
+  else if (!didFreshRetry) {
+    didFreshRetry = true;
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    document.getElementById('infoBox').style.display = 'none';
+    loadInfo(true);
+  } else {
+    showErr('再生に失敗しました。別の動画をお試しいただくか、しばらく待ってから再試行してください。');
+  }
+});
+
+/* ─ Position memory ─ */
+var posKey = 'yt_pos_'+videoId, savePosT;
+vid.addEventListener('timeupdate', function() {
+  clearTimeout(savePosT);
+  savePosT = setTimeout(function() {
+    // duration不明(--:--)でも位置を保存する（ストリーム途中切れ対策）
+    if (vid.currentTime > 5) {
+      try { localStorage.setItem(posKey, Math.floor(vid.currentTime)); } catch(e){}
+    }
+  }, 3000);
+});
+vid.addEventListener('ended', function() { try { localStorage.removeItem(posKey); } catch(e){} });
+function tryRestorePos() {
+  try {
+    var t = parseInt(localStorage.getItem(posKey))||0;
+    if (t>5) {
+      vid.addEventListener('canplay', function rp() {
+        vid.removeEventListener('canplay', rp);
+        vid.currentTime = t; showToast('⏩ '+fmt(t)+' から再開');
+      }, {once:true});
+    }
+  } catch(e){}
+}
+
+/* ─ Watch history ─ */
+function saveHistory(info) {
+  try {
+    var h = JSON.parse(localStorage.getItem('yt_history')||'[]');
+    h = h.filter(function(x){ return x.videoId !== videoId; });
+    h.unshift({videoId:videoId, title:info.title, author:info.author, ts:Date.now()});
+    if (h.length>50) h.length=50;
+    localStorage.setItem('yt_history', JSON.stringify(h));
+  } catch(e){}
+}
+
+/* ─ Apply stream ─ */
+// HLS優先（ISGC対策: 4秒セグメントの連続で大容量バイナリ判定を回避）
+// iOS Safari → ネイティブHLS、Chrome/Firefox → hls.js、最終フォールバック → 直ストリーム
+function applyStream(idx) {
+  var s = streams[idx]; if (!s) return;
+  // 前のhls.jsインスタンスを破棄
+  if (hlsInstance) { try { hlsInstance.destroy(); } catch(e){} hlsInstance = null; }
+  // adaptiveFormats mux時はaudioTokenを?at=で渡す（ffmpegが映像+音声を合成）
+  var hlsUrl = '/m/'+s.token+'/p'+(s.audioToken ? '?at='+encodeURIComponent(s.audioToken) : '');
+  var directUrl = '/s/'+s.token;
+  if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+    // iOS Safari: ネイティブHLS（セグメント分割で遮断回避）
+    fetch(hlsUrl, {method:'HEAD'}).then(function(r) {
+      if (r.ok || r.status === 200) {
+        vid.src = hlsUrl; vid.load(); vid.play().catch(function(){});
+      } else {
+        vid.src = directUrl; vid.load(); vid.play().catch(function(){});
+      }
+    }).catch(function() {
+      vid.src = directUrl; vid.load(); vid.play().catch(function(){});
+    });
+  } else if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+    // Chrome/Firefox: hls.jsでHLS再生（ISGC対策の核心）
+    hlsInstance = new Hls({
+      maxBufferLength: 30,
+      maxMaxBufferLength: 60,
+      enableWorker: true,
+      xhrSetup: function(xhr) { xhr.withCredentials = false; },
+    });
+    hlsInstance.loadSource(hlsUrl);
+    hlsInstance.attachMedia(vid);
+    hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+      vid.play().catch(function(){});
+      document.getElementById('loadingOverlay').style.display = 'none';
+    });
+    hlsInstance.on(Hls.Events.ERROR, function(event, data) {
+      if (data.fatal) {
+        console.warn('[hls.js] fatal error, fallback to direct stream', data.type, data.details);
+        try { hlsInstance.destroy(); } catch(e){} hlsInstance = null;
+        vid.src = directUrl; vid.load(); vid.play().catch(function(){});
+      }
+    });
+  } else {
+    // 最終フォールバック: 直接ストリーム
+    vid.src = directUrl; vid.load(); vid.play().catch(function(){});
+  }
+}
+
+/* ─ Description ─ */
+function toggleDesc() {
+  descExpanded = !descExpanded;
+  document.getElementById('descText').classList.toggle('open', descExpanded);
+  document.getElementById('descToggle').textContent = descExpanded ? '表示を減らす ▴' : 'もっと見る ▾';
+}
+function linkifyDesc(text) {
+  var safe = esc(text);
+  safe = safe.replace(/\b(\d{1,2}:\d{2}(?::\d{2})?)\b/g, function(m) {
+    var parts = m.split(':').map(Number);
+    var s2 = parts.length===3 ? parts[0]*3600+parts[1]*60+parts[2] : parts[0]*60+parts[1];
+    return '<a href="#" onclick="seekTo('+s2+');return false" title="'+m+'へ移動">'+m+'</a>';
+  });
+  safe = safe.replace(/https?:\/\/[^\s&lt;&gt;"]+/g, function(m){
+    return '<a href="'+m+'" target="_blank" rel="noopener">'+m+'</a>';
+  });
+  return safe;
+}
+window.seekTo = function(s) {
+  vid.currentTime = s; vid.play().catch(function(){});
+  window.scrollTo({top:0, behavior:'smooth'});
+  showToast('⏩ '+fmt(s));
+};
+
+/* ─ Tabs ─ */
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tabComments').classList.toggle('active', tab==='comments');
+  document.getElementById('tabRelated').classList.toggle('active', tab==='related');
+  document.getElementById('panel-comments').style.display = tab==='comments' ? '' : 'none';
+  document.getElementById('panel-related').style.display = tab==='related' ? '' : 'none';
+  if (tab==='comments' && !commentsLoaded) loadComments();
+}
+
+/* ─ Related videos ─ */
+function makeRelCard(v, style) {
+  var t = thumb(v.videoId, v.thumbToken);
+  if (style==='side') {
+    return '<div class="side-card" onclick="goVideo(\''+esc(v.videoId)+'\')">'+
+      '<div class="side-thumb"><img src="'+t+'" alt="" loading="lazy" onerror="this.style.opacity=\'.2\'">'+
+      '<span class="side-dur">'+fmt(v.lengthSeconds)+'</span></div>'+
+      '<div class="side-info">'+
+        '<div class="side-card-title">'+esc(v.title)+'</div>'+
+        '<div class="side-card-ch">'+esc(v.author)+'</div>'+
+      '</div></div>';
+  }
+  return '<div class="rel-card" onclick="goVideo(\''+esc(v.videoId)+'\')">'+
+    '<div class="rel-thumb"><img src="'+t+'" alt="" loading="lazy" onerror="this.style.opacity=\'.2\'">'+
+    '<span class="rel-dur">'+fmt(v.lengthSeconds)+'</span></div>'+
+    '<div class="rel-info">'+
+      '<div class="rel-title">'+esc(v.title)+'</div>'+
+      '<div class="rel-ch">'+esc(v.author)+'</div>'+
+      '<div class="rel-views">'+fmtViews(v.viewCount)+'</div>'+
+    '</div></div>';
+}
+function goVideo(id) { location.href = '/ytw?v='+btoa(id); }
+function renderRelated() {
+  var ri = document.getElementById('relatedInner');
+  var sr = document.getElementById('sideRelated');
+  if (!recommended.length) {
+    ri.innerHTML = '<div class="empty">関連動画なし</div>';
+    sr.innerHTML = '<div class="empty">関連動画なし</div>';
+    return;
+  }
+  ri.innerHTML = recommended.map(function(v){ return makeRelCard(v,'row'); }).join('');
+  sr.innerHTML = recommended.map(function(v){ return makeRelCard(v,'side'); }).join('');
+}
+
+/* ─ Comments ─ */
+function loadComments() {
+  commentsLoaded = true;
+  document.getElementById('commentsInner').innerHTML = '<div class="sec-spinner">コメント読み込み中…</div>';
+  fetchComments(null);
+}
+function fetchComments(cont) {
+  var url = '/api/ytcomments?v='+encodeURIComponent(videoId);
+  if (cont) url += '&continuation='+encodeURIComponent(cont);
+  fetch(url)
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      continuationToken = data.continuation || null;
+      renderComments(data.comments||[], !!cont);
+    })
+    .catch(function() {
+      if (!cont) document.getElementById('commentsInner').innerHTML = '<div class="empty">コメントを読み込めませんでした</div>';
+    });
+}
+function renderComments(list, append) {
+  var html = list.map(function(c) {
+    var pin = c.isPinned ? '<span class="c-pin">📌 ピン留め</span>' : '';
+    var heart = c.isHearted ? '<span class="c-heart"> ❤️</span>' : '';
+    var av = (c.authorIcon && c.authorIcon.charAt(0) === '/')
+      ? '<img src="'+esc(c.authorIcon)+'" alt="" loading="lazy" onerror="this.parentNode.textContent=\'👤\'">'
+      : '👤';
+    return '<div class="comment">'+
+      '<div class="c-av">'+av+'</div>'+
+      '<div class="c-body">'+
+        '<div class="c-header">'+
+          '<span class="c-author">'+esc(c.author)+heart+'</span>'+
+          '<span class="c-time">'+esc(c.published)+'</span>'+pin+
+        '</div>'+
+        '<div class="c-text">'+esc(c.text)+'</div>'+
+        (c.likes>0 ? '<div class="c-likes">👍 '+fmtNum(c.likes)+'</div>' : '')+
+      '</div></div>';
+  }).join('');
+
+  var inner = document.getElementById('commentsInner');
+  if (append) {
+    var lb = document.getElementById('cLoadMore'); if(lb) lb.remove();
+    inner.insertAdjacentHTML('beforeend', html);
+  } else {
+    inner.innerHTML = list.length ? html : '<div class="empty">コメントなし</div>';
+  }
+  if (continuationToken) {
+    var div = document.createElement('div');
+    div.className='load-more'; div.id='cLoadMore';
+    div.innerHTML = '<button onclick="loadMoreComments()">もっと見る</button>';
+    inner.appendChild(div);
+  }
+}
+function loadMoreComments() {
+  if (loadingMoreComments || !continuationToken) return;
+  loadingMoreComments = true;
+  var token = continuationToken;
+  continuationToken = null;
+  fetchComments(token);
+  loadingMoreComments = false;
+}
+
+/* ─ Load video info ─ */
+function loadInfo(fresh) {
+  if (!videoId) { showErr('動画IDが指定されていません'); return; }
+  var u = '/api/ytinfo?v='+encodeURIComponent(videoId)+(fresh?'&fresh=1':'');
+  fetch(u)
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.error) { showErr(d.error); return; }
+      streams = d.streams || [];
+      recommended = d.recommended || [];
+      if (!streams.length) { showErr('再生可能なストリームが見つかりませんでした'); return; }
+
+      var title = d.title || '動画';
+      document.title = title + ' — カピバラproxy';
+      document.getElementById('barTitle').textContent = title;
+      document.getElementById('vidTitle').textContent = title;
+      document.getElementById('chName').textContent = d.author || '';
+      document.getElementById('vidViews').textContent = fmtViews(d.viewCount);
+
+      if (d.published) {
+        var dt = new Date(d.published*1000);
+        var dateStr = dt.getFullYear()+'年'+(dt.getMonth()+1)+'月'+dt.getDate()+'日';
+        document.getElementById('vidDate').textContent = dateStr;
+        document.getElementById('descDate').textContent = dateStr+' 公開';
+        document.getElementById('vidDateDot').style.display = '';
+      } else {
+        document.getElementById('vidDateDot').style.display = 'none';
+      }
+
+      var qs = document.getElementById('qualSel');
+      qs.innerHTML = '';
+      streams.forEach(function(s,i){
+        var o = document.createElement('option'); o.value=i; o.textContent=s.label||('Stream '+(i+1));
+        qs.appendChild(o);
+      });
+      qs.style.display = streams.length>1 ? '' : 'none';
+
+      if (d.description) {
+        document.getElementById('descText').innerHTML = linkifyDesc(d.description);
+        document.getElementById('descBox').style.display = 'block';
+      }
+
+      document.getElementById('loadingOverlay').style.display = 'none';
+      document.getElementById('infoBox').style.display = 'block';
+
+      applyStream(0);
+      tryRestorePos();
+      saveHistory(d);
+      renderRelated();
+      // コメントはスクロールして見えたときだけ読み込む（軽量化）
+      if ('IntersectionObserver' in window) {
+        var _cObs = new IntersectionObserver(function(entries) {
+          if (entries[0].isIntersecting && !commentsLoaded && activeTab==='comments') {
+            _cObs.disconnect(); loadComments();
+          }
+        }, { rootMargin: '300px' });
+        _cObs.observe(document.getElementById('commentsInner'));
+      } else {
+        if (activeTab==='comments') loadComments();
+      }
+
+      if (d.likeCount) document.getElementById('likeCount').textContent = fmtNum(d.likeCount);
+
+      fetch('/api/ryd?v='+encodeURIComponent(videoId))
+        .then(function(r){ return r.json(); })
+        .then(function(ryd) {
+          document.getElementById('likeCount').textContent = fmtNum(ryd.likes || d.likeCount || 0);
+          document.getElementById('dislikeCount').textContent = fmtNum(ryd.dislikes || 0);
+        })
+        .catch(function(){});
+    })
+    .catch(function(e){ showErr('情報の取得に失敗しました: '+e.message); });
+}
+
+loadInfo();
+</script>
+</body>
+</html>

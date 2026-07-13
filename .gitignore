@@ -1,0 +1,22 @@
+node_modules/
+.env
+*.log
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local agent/editor state
+.local/
+.agents/
+.claude/
+.config/
+
+# Imported source archives and temporary downloads
+attached_assets/
+*.zip
+*.part
+*.mp4
+*.webm
+*.mkv
+zi*

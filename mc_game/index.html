@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Minecraft — カピバラproxy</title>
+<link rel="icon" href="favicon.ico">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;touch-action:none}
+#game_frame{width:100%;height:100%}
+</style>
+<script type="text/javascript" src="classes.js"></script>
+<script type="text/javascript" src="eagswebrtc.js"></script>
+</head>
+<body id="game_frame">
+<script type="text/javascript">
+window.addEventListener("load", function() {
+  var relayId = Math.floor(Math.random() * 3);
+  window.eaglercraftOpts = {
+    container: "game_frame",
+    assetsURI: "assets.epk",
+    serverWorkerURI: "worker_bootstrap.js",
+    worldsFolder: "MAIN",
+    servers: [
+      { serverName: "ArchMC", serverAddress: "wss://mc.arch.lol/", hideAddress: false },
+      { serverName: "Asspixel", serverAddress: "wss://web.asspixel.net/CAPixel/", hideAddress: false }
+    ],
+    relays: [
+      { addr: "wss://relay.deev.is/", name: "lax1dude relay #1", primary: relayId == 0 },
+      { addr: "wss://relay.lax1dude.net/", name: "lax1dude relay #2", primary: relayId == 1 },
+      { addr: "wss://relay.shhnowisnottheti.me/", name: "ayunami relay #1", primary: relayId == 2 }
+    ],
+    mainMenu: { splashes: ["モバイル対応！"], eaglerLogo: true }
+  };
+  main();
+});
+</script>
+<script type="text/javascript" src="eaglermobile.user.js"></script>
+</body>
+</html>

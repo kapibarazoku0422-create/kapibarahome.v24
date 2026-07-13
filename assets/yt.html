@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>▶ YouTube — カピバラproxy</title>
+<meta name="theme-color" content="#0f0f0f">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,'Segoe UI',Roboto,sans-serif;background:#0f0f0f;color:#f1f1f1;min-height:100vh}
+
+/* ── Header ── */
+.hd{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#212121;
+    border-bottom:1px solid #3a3a3a;position:sticky;top:0;z-index:100}
+.hd-back{color:#aaa;text-decoration:none;font-size:14px;padding:5px 10px;border-radius:6px;white-space:nowrap}
+.hd-back:hover{background:#3f3f3f;color:#fff}
+.hd-title{font-size:18px;font-weight:700;color:#f00;flex:1;text-align:center;letter-spacing:-.3px}
+.hd-badge{font-size:10px;padding:2px 8px;border-radius:99px;background:#1a0000;border:1px solid #600;
+          color:#f87171;white-space:nowrap}
+
+/* ── Search area ── */
+.search-area{padding:16px;max-width:760px;margin:0 auto;position:relative}
+.search-row{display:flex;gap:8px}
+.search-row input{flex:1;padding:12px 16px;border:1px solid #3a3a3a;border-radius:10px;
+                  background:#212121;color:#f1f5f9;font-size:15px;outline:none;transition:.2s}
+.search-row input:focus{border-color:#f00;box-shadow:0 0 0 3px rgba(220,0,0,.2)}
+.search-row input::placeholder{color:#555}
+.search-btn{padding:0 20px;border:0;border-radius:10px;cursor:pointer;font-weight:700;font-size:15px;
+            background:linear-gradient(135deg,#f00,#c00);color:#fff;white-space:nowrap;flex-shrink:0}
+.search-btn:hover{filter:brightness(1.1)}
+
+/* ── Suggestions dropdown ── */
+.suggest-box{position:absolute;left:0;right:0;top:calc(100% - 8px);background:#212121;
+             border:1px solid #3a3a3a;border-radius:0 0 10px 10px;z-index:200;
+             box-shadow:0 8px 24px rgba(0,0,0,.6);overflow:hidden;display:none;margin:0 0}
+.suggest-item{padding:10px 18px;font-size:14px;color:#f1f1f1;cursor:pointer;display:flex;align-items:center;gap:10px}
+.suggest-item:hover{background:#3a3a3a}
+.suggest-item::before{content:'🔍';font-size:12px;color:#555;flex-shrink:0}
+
+/* ── Search history chips ── */
+.hist-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.hist-chip{background:#272727;border:1px solid #3a3a3a;border-radius:99px;padding:4px 12px;
+           font-size:12px;color:#aaa;cursor:pointer;display:flex;align-items:center;gap:5px;transition:.12s}
+.hist-chip:hover{background:#3a3a3a;color:#f1f1f1}
+.hist-chip .del{color:#555;font-size:11px;padding:0 2px}
+.hist-chip .del:hover{color:#f87171}
+
+/* ── Section header ── */
+.sec-hd{display:flex;align-items:center;gap:8px;padding:0 16px 12px;max-width:760px;margin:0 auto}
+.sec-hd-text{font-size:16px;font-weight:700;color:#f1f1f1}
+.sec-hd-sub{font-size:12px;color:#555;margin-left:auto;cursor:pointer}
+.sec-hd-sub:hover{color:#aaa}
+
+/* ── Status ── */
+.status{text-align:center;padding:40px 16px;color:#555;font-size:14px}
+.status.err{color:#f87171}
+.spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,.15);border-top-color:#f00;
+         border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Tabs ── */
+.nav-tabs{display:flex;gap:6px;padding:0 16px 12px;max-width:760px;margin:0 auto;flex-wrap:wrap}
+.nav-tab{background:#212121;border:1px solid #3a3a3a;border-radius:99px;color:#aaa;
+         font-size:13px;font-weight:600;padding:7px 18px;cursor:pointer;transition:.15s;white-space:nowrap}
+.nav-tab:hover{background:#3a3a3a;color:#f1f1f1}
+.nav-tab.active{background:#f00;border-color:#f00;color:#fff}
+
+/* ── Grid ── */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:14px;
+      padding:0 16px 32px;max-width:760px;margin:0 auto}
+.card{background:#212121;border:1px solid #2a2a2a;border-radius:10px;overflow:hidden;
+      cursor:pointer;transition:.15s;display:block;color:inherit;text-decoration:none}
+.card:hover{border-color:#f00;transform:translateY(-2px);box-shadow:0 4px 16px rgba(220,0,0,.15)}
+.thumb-wrap{position:relative;aspect-ratio:16/9;background:#1a1a1a;overflow:hidden}
+.thumb-wrap img{width:100%;height:100%;object-fit:cover;display:block;transition:opacity .3s}
+.thumb-wrap img.loading{opacity:.4}
+.dur{position:absolute;bottom:5px;right:6px;background:rgba(0,0,0,.85);color:#fff;
+     font-size:10px;padding:2px 5px;border-radius:4px;font-weight:600}
+.card-body{padding:9px 10px 11px}
+.card-title{font-size:12px;font-weight:600;color:#f1f1f1;
+            display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+            overflow:hidden;line-height:1.45;margin-bottom:4px}
+.card-ch{font-size:11px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-views{font-size:10px;color:#555;margin-top:2px}
+/* Shorts: 縦型グリッド */
+.shorts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;
+             padding:0 16px 32px;max-width:760px;margin:0 auto}
+.short-card{background:#212121;border:1px solid #2a2a2a;border-radius:10px;overflow:hidden;
+            cursor:pointer;transition:.15s}
+.short-card:hover{border-color:#f00;transform:translateY(-2px)}
+.short-thumb{position:relative;aspect-ratio:9/16;background:#1a1a1a;overflow:hidden}
+.short-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.short-body{padding:7px 9px 9px}
+.short-title{font-size:12px;font-weight:600;color:#f1f1f1;
+             display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+             overflow:hidden;line-height:1.4;margin-bottom:3px}
+.short-ch{font-size:10px;color:#aaa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── History section ── */
+.hist-section{max-width:760px;margin:0 auto 20px;padding:0 16px}
+.hist-title{font-size:14px;font-weight:700;color:#aaa;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.hist-title .clr{font-size:11px;color:#555;cursor:pointer;font-weight:400;margin-left:auto}
+.hist-title .clr:hover{color:#f87171}
+.hist-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin;scrollbar-color:#3a3a3a transparent}
+.hist-scroll::-webkit-scrollbar{height:4px}
+.hist-scroll::-webkit-scrollbar-thumb{background:#3a3a3a;border-radius:2px}
+.hist-item{flex-shrink:0;width:140px;cursor:pointer}
+.hist-item:hover .hist-thumb-wrap{border-color:#f00}
+.hist-thumb-wrap{aspect-ratio:16/9;border-radius:7px;overflow:hidden;background:#272727;border:1px solid #2a2a2a;margin-bottom:5px;transition:.12s}
+.hist-thumb-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.hist-item-title{font-size:11px;color:#d0d0d0;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <a href="/" class="hd-back">← 戻る</a>
+  <span class="hd-title">▶ YouTube</span>
+  <span class="hd-badge">proxy経由</span>
+</div>
+
+<div class="search-area" id="searchArea">
+  <div class="search-row">
+    <input id="q" type="search" placeholder="動画を検索…" autocomplete="off" spellcheck="false" autofocus>
+    <button class="search-btn" id="searchBtn" type="button">検索</button>
+  </div>
+  <div class="suggest-box" id="suggestBox"></div>
+  <div class="hist-chips" id="histChips"></div>
+</div>
+
+<div id="watchHistSection" style="display:none">
+  <div class="hist-section">
+    <div class="hist-title">
+      🕐 最近視聴した動画
+      <span class="clr" onclick="clearWatchHistory()">クリア</span>
+    </div>
+    <div class="hist-scroll" id="watchHistScroll"></div>
+  </div>
+</div>
+
+<div class="nav-tabs">
+  <button class="nav-tab active" id="tab-trending" onclick="switchNav('trending')">🔥 トレンド</button>
+  <button class="nav-tab" id="tab-shorts" onclick="switchNav('shorts')">▶ Shorts</button>
+</div>
+
+<div class="status" id="status"><div class="spinner"></div>トレンドを読み込み中…</div>
+<div id="sectionHeader" style="display:none">
+  <div class="sec-hd">
+    <span class="sec-hd-text" id="sectionTitle">🔥 トレンド（日本）</span>
+  </div>
+</div>
+<div class="grid" id="grid"></div>
+<div class="shorts-grid" id="shortsGrid" style="display:none"></div>
+
+<script>
+'use strict';
+var currentMode = 'trending';
+var suggestTimer = null;
+var searchHistKey = 'yt_searchhist';
+var watchHistKey = 'yt_history';
+
+/* ─ Utils ─ */
+function fmt(sec) {
+  sec = parseInt(sec)||0;
+  var h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+  if (h) return h+':'+pad(m)+':'+pad(s);
+  return m+':'+String(s).padStart(2,'0');
+}
+function pad(n){ return String(n).padStart(2,'0'); }
+function fmtViews(n) {
+  n = parseInt(n)||0;
+  if (n>=1e8) return (n/1e8).toFixed(0)+'億回';
+  if (n>=1e4) return Math.floor(n/1e4)+'万回';
+  return n.toLocaleString()+'回';
+}
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function thumb(id, token){ return token ? '/img/'+token : '/thumb/'+encodeURIComponent(id); }
+function playVideo(id) { location.href = '/ytw?v='+btoa(id); }
+
+/* ─ Watch history ─ */
+function loadWatchHistory() {
+  try {
+    var h = JSON.parse(localStorage.getItem(watchHistKey)||'[]');
+    if (!h.length) return;
+    var scroll = document.getElementById('watchHistScroll');
+    scroll.innerHTML = h.slice(0,12).map(function(v) {
+      return '<div class="hist-item" onclick="playVideo(\''+esc(v.videoId)+'\')">'+
+        '<div class="hist-thumb-wrap"><img src="'+thumb(v.videoId, v.thumbToken)+'" alt="" loading="lazy" onerror="this.style.opacity=\'.3\'"></div>'+
+        '<div class="hist-item-title">'+esc(v.title||'')+'</div>'+
+      '</div>';
+    }).join('');
+    document.getElementById('watchHistSection').style.display = 'block';
+  } catch(e){}
+}
+function clearWatchHistory() {
+  try { localStorage.removeItem(watchHistKey); } catch(e){}
+  document.getElementById('watchHistSection').style.display = 'none';
+}
+
+/* ─ Search history ─ */
+function getSearchHist() {
+  try { return JSON.parse(localStorage.getItem(searchHistKey)||'[]'); } catch(e){ return []; }
+}
+function addSearchHist(q) {
+  try {
+    var h = getSearchHist().filter(function(x){ return x!==q; });
+    h.unshift(q); if (h.length>10) h.length=10;
+    localStorage.setItem(searchHistKey, JSON.stringify(h));
+  } catch(e){}
+}
+function removeSearchHist(q) {
+  try {
+    var h = getSearchHist().filter(function(x){ return x!==q; });
+    localStorage.setItem(searchHistKey, JSON.stringify(h));
+    renderHistChips();
+  } catch(e){}
+}
+function renderHistChips() {
+  var h = getSearchHist();
+  var el = document.getElementById('histChips');
+  if (!h.length) { el.innerHTML=''; return; }
+  el.innerHTML = h.slice(0,6).map(function(q) {
+    return '<div class="hist-chip" onclick="setSearchAndGo(\''+esc(q)+'\')">'+
+      esc(q)+
+      '<span class="del" onclick="event.stopPropagation();removeSearchHist(\''+esc(q)+'\')">✕</span>'+
+    '</div>';
+  }).join('');
+}
+function setSearchAndGo(q) {
+  document.getElementById('q').value = q;
+  doSearch();
+}
+
+/* ─ Suggestions ─ */
+var activeSuggest = -1;
+function showSuggest(list) {
+  var box = document.getElementById('suggestBox');
+  if (!list.length) { box.style.display='none'; return; }
+  box.innerHTML = list.slice(0,8).map(function(s) {
+    return '<div class="suggest-item" onclick="selectSuggest(\''+esc(s)+'\')" onmousedown="event.preventDefault()">'+esc(s)+'</div>';
+  }).join('');
+  box.style.display = 'block';
+  activeSuggest = -1;
+}
+function hideSuggest() {
+  document.getElementById('suggestBox').style.display = 'none';
+  activeSuggest = -1;
+}
+function selectSuggest(q) {
+  document.getElementById('q').value = q;
+  hideSuggest(); doSearch();
+}
+
+/* ─ Grid rendering ─ */
+function renderResults(videos) {
+  var grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  if (!videos||!videos.length) {
+    setStatus('結果が見つかりませんでした', true); return;
+  }
+  setStatus('', false);
+  videos.forEach(function(v) {
+    if (!v.videoId) return;
+    var card = document.createElement('div'); card.className='card';
+    card.innerHTML =
+      '<div class="thumb-wrap">'+
+        '<img class="loading" src="'+thumb(v.videoId, v.thumbToken)+'" alt="" loading="lazy"'+
+          ' onload="this.classList.remove(\'loading\')"'+
+          ' onerror="this.style.opacity=\'.15\'">'+
+        '<span class="dur">'+fmt(v.lengthSeconds)+'</span>'+
+      '</div>'+
+      '<div class="card-body">'+
+        '<div class="card-title">'+esc(v.title||'')+'</div>'+
+        '<div class="card-ch">'+esc(v.author||'')+'</div>'+
+        '<div class="card-views">'+fmtViews(v.viewCount)+'</div>'+
+      '</div>';
+    card.addEventListener('click', function(){ playVideo(v.videoId); });
+    grid.appendChild(card);
+  });
+}
+function setStatus(msg, isErr) {
+  var el = document.getElementById('status');
+  el.className = 'status'+(isErr?' err':'');
+  el.innerHTML = msg ? msg : '';
+  el.style.display = msg ? '' : 'none';
+}
+function setSectionTitle(txt) {
+  document.getElementById('sectionTitle').textContent = txt;
+  document.getElementById('sectionHeader').style.display = txt ? '' : 'none';
+}
+
+/* ─ サンプル（おすすめ）動画 ─ */
+// トレンド取得失敗時のフォールバック表示用。動画IDを必要に応じて更新してください。
+var SAMPLE_VIDEOS = [
+  {videoId:'dQw4w9WgXcQ', title:'Never Gonna Give You Up', author:'Rick Astley', lengthSeconds:212, viewCount:1621000000},
+  {videoId:'9bZkp7q19f0', title:'PSY - GANGNAM STYLE(강남스타일) M/V', author:'officialpsy', lengthSeconds:252, viewCount:5100000000},
+  {videoId:'JGwWNGJdvx8', title:'Ed Sheeran - Shape of You [Official Music Video]', author:'Ed Sheeran', lengthSeconds:234, viewCount:6200000000},
+  {videoId:'kXYiU_JCYtU', title:'Linkin Park - Numb (Official Video)', author:'Linkin Park', lengthSeconds:187, viewCount:1700000000},
+  {videoId:'YR5ApYxkU-U', title:'C418 - Sweden (Minecraft Volume Alpha)', author:'C418', lengthSeconds:218, viewCount:350000000},
+  {videoId:'fJ9rUzIMcZQ', title:'Queen - Bohemian Rhapsody (Official Video)', author:'Queen Official', lengthSeconds:354, viewCount:1900000000},
+  {videoId:'OPf0YbXqDm0', title:'Mark Ronson - Uptown Funk ft. Bruno Mars', author:'Mark Ronson', lengthSeconds:270, viewCount:5100000000},
+  {videoId:'60ItHLz5WEA', title:'Alan Walker - Faded', author:'Alan Walker', lengthSeconds:212, viewCount:3800000000},
+  {videoId:'SlPhMPnQ58k', title:'The Weeknd - Blinding Lights (Official Video)', author:'The Weeknd', lengthSeconds:200, viewCount:1100000000},
+  {videoId:'CevxZvSJLk8', title:'Katy Perry - Roar (Official)', author:'Katy Perry', lengthSeconds:225, viewCount:3600000000},
+  {videoId:'RgKAFK5djSk', title:'Wiz Khalifa - See You Again ft. Charlie Puth', author:'Wiz Khalifa', lengthSeconds:229, viewCount:5900000000},
+  {videoId:'2Vv-BfVoq4g', title:'Ed Sheeran - Perfect (Official Music Video)', author:'Ed Sheeran', lengthSeconds:263, viewCount:3000000000},
+];
+
+function showSampleVideos() {
+  setSectionTitle('🎬 おすすめ（サンプル）');
+  setStatus('', false);
+  renderResults(SAMPLE_VIDEOS);
+}
+
+/* ─ Trending ─ */
+function loadTrending() {
+  setStatus('<div class="spinner"></div>トレンドを読み込み中…', false);
+  document.getElementById('grid').innerHTML = '';
+  setSectionTitle('');
+  fetch('/api/yttrending')
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (data.error || !data.length) { showSampleVideos(); return; }
+      setSectionTitle('🔥 トレンド（日本）');
+      renderResults(data);
+    })
+    .catch(function() {
+      showSampleVideos();
+    });
+}
+
+/* ─ Search ─ */
+function doSearch() {
+  var q = document.getElementById('q').value.trim();
+  if (!q) return;
+  hideSuggest();
+  currentMode = 'search';
+  document.getElementById('grid').innerHTML = '';
+  setSectionTitle('');
+  setStatus('<div class="spinner"></div>検索中…', false);
+  addSearchHist(q);
+  renderHistChips();
+
+  fetch('/api/ytsearch?q='+encodeURIComponent(q))
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (data.error) { setStatus('エラー: '+data.error, true); return; }
+      setSectionTitle('🔎 「'+q+'」の検索結果');
+      renderResults(data);
+    })
+    .catch(function() { setStatus('検索に失敗しました。しばらくしてからお試しください。', true); });
+}
+
+/* ─ Events ─ */
+var q = document.getElementById('q');
+document.getElementById('searchBtn').addEventListener('click', doSearch);
+q.addEventListener('keydown', function(e) {
+  var box = document.getElementById('suggestBox');
+  var items = box.querySelectorAll('.suggest-item');
+  if (e.key==='Enter') {
+    if (activeSuggest>=0 && items[activeSuggest]) {
+      selectSuggest(items[activeSuggest].textContent);
+    } else { doSearch(); }
+    return;
+  }
+  if (e.key==='ArrowDown') {
+    e.preventDefault();
+    activeSuggest = Math.min(activeSuggest+1, items.length-1);
+    items.forEach(function(it,i){ it.style.background=i===activeSuggest?'#3a3a3a':''; });
+    if (items[activeSuggest]) q.value = items[activeSuggest].textContent;
+    return;
+  }
+  if (e.key==='ArrowUp') {
+    e.preventDefault();
+    activeSuggest = Math.max(activeSuggest-1, -1);
+    items.forEach(function(it,i){ it.style.background=i===activeSuggest?'#3a3a3a':''; });
+    return;
+  }
+  if (e.key==='Escape') { hideSuggest(); return; }
+});
+q.addEventListener('input', function() {
+  var val = this.value.trim();
+  clearTimeout(suggestTimer);
+  if (!val) { hideSuggest(); return; }
+  suggestTimer = setTimeout(function() {
+    fetch('/api/ytsuggest?q='+encodeURIComponent(val))
+      .then(function(r){ return r.json(); })
+      .then(function(list){ showSuggest(list||[]); })
+      .catch(function(){});
+  }, 280);
+});
+q.addEventListener('focus', function() {
+  if (this.value.trim()) {
+    var box = document.getElementById('suggestBox');
+    if (box.innerHTML) box.style.display='block';
+  }
+});
+document.addEventListener('click', function(e) {
+  if (!document.getElementById('searchArea').contains(e.target)) hideSuggest();
+});
+
+/* ─ Nav tabs ─ */
+function switchNav(mode) {
+  currentMode = mode;
+  document.getElementById('tab-trending').classList.toggle('active', mode==='trending');
+  document.getElementById('tab-shorts').classList.toggle('active', mode==='shorts');
+  document.getElementById('grid').style.display = mode==='trending' ? '' : 'none';
+  document.getElementById('shortsGrid').style.display = mode==='shorts' ? '' : 'none';
+  document.getElementById('sectionHeader').style.display = 'none';
+  document.getElementById('grid').innerHTML = '';
+  document.getElementById('shortsGrid').innerHTML = '';
+  if (mode === 'trending') {
+    loadTrending();
+  } else {
+    loadShorts();
+  }
+}
+
+/* ─ Shorts ─ */
+function playShort(id) { location.href = '/ytw?v='+btoa(id)+'&short=1'; }
+function renderShorts(videos) {
+  var grid = document.getElementById('shortsGrid');
+  grid.innerHTML = '';
+  if (!videos||!videos.length) { setStatus('Shortsが見つかりませんでした', true); return; }
+  setStatus('', false);
+  setSectionTitle('▶ Shorts');
+  videos.forEach(function(v) {
+    if (!v.videoId) return;
+    var card = document.createElement('div'); card.className='short-card';
+    card.innerHTML =
+      '<div class="short-thumb">'+
+        '<img src="'+thumb(v.videoId, v.thumbToken)+'" alt="" loading="lazy" onerror="this.style.opacity=\'.15\'">'+
+      '</div>'+
+      '<div class="short-body">'+
+        '<div class="short-title">'+esc(v.title||'')+'</div>'+
+        '<div class="short-ch">'+esc(v.author||'')+'</div>'+
+      '</div>';
+    card.addEventListener('click', function(){ playShort(v.videoId); });
+    grid.appendChild(card);
+  });
+}
+function loadShorts() {
+  setStatus('<div class="spinner"></div>Shortsを読み込み中…', false);
+  var q = document.getElementById('q').value.trim();
+  var url = q ? '/api/ytshorts?q='+encodeURIComponent(q) : '/api/ytshorts';
+  fetch(url)
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (data.error || !data.length) { setStatus('Shortsを取得できませんでした', true); return; }
+      renderShorts(data);
+    })
+    .catch(function(){ setStatus('Shortsの読み込みに失敗しました', true); });
+}
+
+/* ─ Init ─ */
+loadWatchHistory();
+renderHistChips();
+loadTrending();
+</script>
+</body>
+</html>

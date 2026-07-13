@@ -1,0 +1,1767 @@
+================================================================
+  コーディング完全マニュアル
+  主要言語・概念・テクニック総まとめ
+================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 1: プログラミングの基本概念
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ プログラムとは
+  コンピュータへの命令の羅列。人間が書いたコードをCPUが実行できる
+  機械語に変換して動く。
+
+■ コンパイル型 vs インタプリタ型
+  コンパイル型: 実行前にソースコード全体を機械語に変換 → 速い
+    例: C, C++, Rust, Go, Swift
+  インタプリタ型: 実行時に1行ずつ解釈 → 開発しやすい
+    例: Python, Ruby, JavaScript(JIT最適化あり)
+  中間型(バイトコード): Java, C#, Kotlin → JVM/.NET上で動く
+
+■ 変数とデータ型
+  変数: 値を入れる箱。名前をつけてメモリに保存。
+  基本型:
+    整数 (int/integer): 1, -5, 100
+    浮動小数点 (float/double): 3.14, -0.001
+    文字列 (string): "hello", 'world'
+    真偽値 (bool/boolean): true / false
+    null/nil/None: 値なし
+
+■ 演算子
+  算術: + - * / % // **
+  比較: == != < > <= >=
+  論理: && || ! (and or not)
+  ビット: & | ^ ~ << >>
+  代入: = += -= *= /= %= **=
+
+■ 制御構文
+  if/else: 条件分岐
+  for: 反復処理
+  while: 条件が真の間ループ
+  switch/match: 多分岐
+  break: ループを抜ける
+  continue: 次のループへスキップ
+  return: 関数から値を返す
+
+■ 関数
+  入力(引数)を受け取り、処理して出力(戻り値)を返す再利用可能な部品。
+  純粋関数: 同じ入力→同じ出力、副作用なし
+  副作用: ファイル書き込み、DB操作、画面出力など外部に影響する処理
+
+■ 再帰
+  関数が自分自身を呼び出す手法。
+  必ず「基底ケース」(これ以上再帰しない条件)が必要。
+  例: 階乗 factorial(n) = n * factorial(n-1), factorial(0) = 1
+
+■ スコープ
+  変数が参照できる範囲。
+  グローバルスコープ: プログラム全体
+  ローカルスコープ: 関数・ブロック内
+  クロージャ: 外側の変数をキャプチャした関数
+
+■ メモリ管理
+  スタック: 関数呼び出し・ローカル変数。高速。サイズ固定。
+  ヒープ: 動的確保。サイズ可変。手動(C)またはGC(Python/Java)が管理。
+  GC(ガベージコレクション): 使われなくなったメモリを自動解放。
+  手動管理(C/Rust): malloc/freeまたは所有権システム。
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 2: Python
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 基本
+  # コメント
+  print("Hello, World!")
+  x = 10          # 整数
+  y = 3.14        # 浮動小数点
+  s = "text"      # 文字列
+  b = True        # 真偽値
+  n = None        # null
+
+■ 文字列操作
+  s = "Hello"
+  s.upper()           # "HELLO"
+  s.lower()           # "hello"
+  s.replace("l","r")  # "Herro"
+  s.split(",")        # リストに分割
+  ",".join(["a","b"]) # "a,b"
+  f"値は{x}です"       # f文字列(フォーマット)
+  len(s)              # 長さ
+  s[0]                # 先頭文字
+  s[-1]               # 末尾文字
+  s[1:4]              # スライス
+
+■ リスト(配列)
+  lst = [1, 2, 3, 4, 5]
+  lst.append(6)       # 末尾追加
+  lst.insert(0, 0)    # 位置指定挿入
+  lst.pop()           # 末尾削除&取得
+  lst.remove(3)       # 値削除(初回)
+  lst.sort()          # ソート
+  lst.reverse()       # 逆順
+  lst[1:3]            # スライス
+  len(lst)            # 長さ
+  3 in lst            # 含まれるか
+  [x*2 for x in lst] # リスト内包表記
+
+■ 辞書(dict)
+  d = {"key": "value", "age": 20}
+  d["key"]            # 値取得
+  d.get("key", "默")  # キーなしの場合の既定値
+  d["new"] = 99       # 追加/更新
+  del d["key"]        # 削除
+  d.keys()            # キー一覧
+  d.values()          # 値一覧
+  d.items()           # (key,value)ペア一覧
+  "key" in d          # キー存在確認
+
+■ タプル・セット
+  t = (1, 2, 3)       # タプル: 不変リスト
+  s = {1, 2, 3}       # セット: 重複なし集合
+  s.add(4)
+  s1 & s2             # 積集合
+  s1 | s2             # 和集合
+  s1 - s2             # 差集合
+
+■ 制御構文
+  if x > 0:
+      print("正")
+  elif x == 0:
+      print("ゼロ")
+  else:
+      print("負")
+
+  for i in range(5):
+      print(i)         # 0,1,2,3,4
+
+  for i, v in enumerate(lst):
+      print(i, v)
+
+  while x > 0:
+      x -= 1
+
+  # 三項演算子
+  result = "yes" if x > 0 else "no"
+
+■ 関数
+  def greet(name, greeting="Hello"):
+      return f"{greeting}, {name}!"
+
+  # *args: 可変長位置引数
+  def sum_all(*args):
+      return sum(args)
+
+  # **kwargs: 可変長キーワード引数
+  def info(**kwargs):
+      for k, v in kwargs.items():
+          print(f"{k}: {v}")
+
+  # ラムダ
+  double = lambda x: x * 2
+
+  # デコレータ
+  def my_decorator(func):
+      def wrapper(*args, **kwargs):
+          print("前処理")
+          result = func(*args, **kwargs)
+          print("後処理")
+          return result
+      return wrapper
+
+  @my_decorator
+  def hello():
+      print("Hello!")
+
+■ クラス・OOP
+  class Animal:
+      def __init__(self, name):
+          self.name = name
+
+      def speak(self):
+          return f"{self.name} speaks"
+
+  class Dog(Animal):         # 継承
+      def speak(self):       # オーバーライド
+          return f"{self.name} says Woof!"
+
+  d = Dog("Rex")
+  print(d.speak())
+
+  # 特殊メソッド(マジックメソッド)
+  __str__   # str(obj)
+  __len__   # len(obj)
+  __eq__    # obj == other
+  __lt__    # obj < other
+  __add__   # obj + other
+  __iter__  # for x in obj
+  __next__  # next()
+  __enter__ / __exit__  # with文
+
+■ 例外処理
+  try:
+      x = int("abc")
+  except ValueError as e:
+      print(f"エラー: {e}")
+  except (TypeError, KeyError):
+      print("複数の例外")
+  else:
+      print("成功時")
+  finally:
+      print("常に実行")
+
+  # カスタム例外
+  class MyError(Exception):
+      pass
+  raise MyError("説明")
+
+■ ファイル操作
+  with open("file.txt", "r", encoding="utf-8") as f:
+      content = f.read()
+      lines = f.readlines()
+
+  with open("out.txt", "w", encoding="utf-8") as f:
+      f.write("テキスト\n")
+
+  # モード: r(読込) w(書込) a(追記) rb(バイナリ読込)
+
+■ ジェネレータ
+  def count_up(n):
+      for i in range(n):
+          yield i          # 値を返して一時停止
+
+  gen = count_up(5)
+  next(gen)                # 0
+
+  # ジェネレータ式
+  g = (x**2 for x in range(10))
+
+■ 内包表記
+  [x for x in range(10) if x % 2 == 0]    # リスト
+  {x: x**2 for x in range(5)}              # 辞書
+  {x for x in [1,1,2,3]}                  # セット
+
+■ 非同期処理(asyncio)
+  import asyncio
+
+  async def fetch():
+      await asyncio.sleep(1)
+      return "done"
+
+  async def main():
+      result = await fetch()
+      tasks = [asyncio.create_task(fetch()) for _ in range(3)]
+      results = await asyncio.gather(*tasks)
+
+  asyncio.run(main())
+
+■ よく使うライブラリ
+  os, sys, pathlib    # ファイル・パス操作
+  json                # JSON処理
+  re                  # 正規表現
+  datetime            # 日時
+  math, random        # 数値計算
+  collections         # Counter, defaultdict, deque
+  itertools           # 高度なイテレータ操作
+  functools           # reduce, partial, lru_cache
+  threading, multiprocessing # 並列処理
+  requests            # HTTPクライアント(pip install)
+  flask, fastapi      # Webフレームワーク
+  sqlalchemy          # ORM/DB操作
+  numpy, pandas       # 数値計算・データ分析
+  pytest              # テスト
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 3: JavaScript / TypeScript
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 基本
+  // コメント
+  /* 複数行コメント */
+  let x = 10;          // 再代入可能
+  const y = 20;        // 再代入不可
+  var z = 30;          // 古い(スコープが広い、非推奨)
+
+■ データ型
+  number, string, boolean, null, undefined, symbol, bigint
+  typeof x             // 型確認
+  x === y              // 厳密等価(型も一致)
+  x == y               // 緩い等価(型変換あり)→ほぼ使わない
+
+■ 文字列
+  const s = "hello";
+  `テンプレート${x}リテラル`      // バッククォート
+  s.toUpperCase()
+  s.includes("ell")
+  s.startsWith("he")
+  s.slice(1, 3)
+  s.split(",")
+  s.trim()             // 前後の空白削除
+  s.padStart(5, "0")   // "00000hello"
+  s.repeat(3)
+
+■ 配列
+  const arr = [1, 2, 3];
+  arr.push(4)          // 末尾追加
+  arr.pop()            // 末尾削除
+  arr.unshift(0)       // 先頭追加
+  arr.shift()          // 先頭削除
+  arr.slice(1, 3)      // コピー(非破壊)
+  arr.splice(1, 1)     // 削除(破壊的)
+  arr.includes(2)      // 含むか
+  arr.indexOf(2)       // インデックス
+  arr.find(x => x > 2) // 条件を満たす最初の値
+  arr.filter(x => x > 1) // フィルタ
+  arr.map(x => x * 2)  // 変換
+  arr.reduce((acc, x) => acc + x, 0) // 集約
+  arr.forEach(x => console.log(x))   // 反復(戻り値なし)
+  arr.sort((a, b) => a - b)          // 数値ソート
+  arr.flat()           // ネスト配列を平坦化
+  arr.flatMap(x => [x, x*2])
+  [...arr, 4, 5]       // スプレッド(コピー＋追加)
+
+■ オブジェクト
+  const obj = { name: "Alice", age: 20 };
+  obj.name             // ドット記法
+  obj["age"]           // ブラケット記法
+  const { name, age } = obj;  // 分割代入
+  const { name: n } = obj;    // 別名で取得
+  { ...obj, age: 21 }  // スプレッドで更新コピー
+  Object.keys(obj)     // キー配列
+  Object.values(obj)   // 値配列
+  Object.entries(obj)  // [key,value]配列
+  Object.assign({}, obj, { age: 21 })
+
+■ 制御構文
+  if (x > 0) { ... } else if (...) { ... } else { ... }
+
+  for (let i = 0; i < 5; i++) { ... }
+  for (const item of arr) { ... }    // 値を反復
+  for (const key in obj) { ... }     // キーを反復(オブジェクト向け)
+
+  while (condition) { ... }
+  do { ... } while (condition);
+
+  switch (x) {
+    case 1: ...; break;
+    default: ...;
+  }
+
+  // 三項
+  const r = x > 0 ? "正" : "負";
+  // Null合体
+  const v = x ?? "default";   // xがnull/undefinedの時のみ"default"
+  // オプショナルチェーン
+  obj?.nested?.value
+
+■ 関数
+  // 通常関数
+  function add(a, b) { return a + b; }
+
+  // アロー関数(thisを束縛しない)
+  const add = (a, b) => a + b;
+  const double = x => x * 2;
+  const greet = () => "hello";
+
+  // デフォルト引数
+  function greet(name = "World") { return `Hello, ${name}!`; }
+
+  // 残余引数
+  function sum(...nums) { return nums.reduce((a,b) => a+b, 0); }
+
+  // 即時実行関数 IIFE
+  (() => { console.log("即時実行"); })();
+
+■ クロージャ
+  function counter() {
+    let count = 0;
+    return {
+      increment: () => ++count,
+      get: () => count
+    };
+  }
+  const c = counter();
+  c.increment(); // 1
+
+■ クラス
+  class Animal {
+    #name;  // プライベートフィールド
+    constructor(name) { this.#name = name; }
+    speak() { return `${this.#name} speaks`; }
+    static create(name) { return new Animal(name); }
+  }
+
+  class Dog extends Animal {
+    speak() { return "Woof!"; }
+  }
+
+■ 非同期処理
+  // Promise
+  fetch("https://api.example.com/data")
+    .then(res => res.json())
+    .then(data => console.log(data))
+    .catch(err => console.error(err));
+
+  // async/await
+  async function getData() {
+    try {
+      const res = await fetch("https://api.example.com/data");
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  // 並列実行
+  const [a, b] = await Promise.all([fetchA(), fetchB()]);
+  const first = await Promise.race([fetchA(), fetchB()]);
+
+■ モジュール(ESM)
+  // export
+  export const PI = 3.14;
+  export function add(a, b) { return a + b; }
+  export default class MyClass { ... }
+
+  // import
+  import MyClass from "./myClass.js";
+  import { PI, add } from "./math.js";
+  import * as math from "./math.js";
+
+■ TypeScript追加機能
+  // 型注釈
+  let x: number = 10;
+  let s: string = "hello";
+  let b: boolean = true;
+  let arr: number[] = [1, 2, 3];
+  let tuple: [string, number] = ["a", 1];
+
+  // 型エイリアス
+  type Point = { x: number; y: number };
+  type ID = string | number;
+
+  // インターフェース
+  interface User {
+    id: number;
+    name: string;
+    email?: string;  // オプショナル
+  }
+
+  // ジェネリクス
+  function identity<T>(arg: T): T { return arg; }
+  const arr: Array<number> = [1, 2, 3];
+
+  // ユニオン・交差型
+  type StringOrNum = string | number;
+  type AB = A & B;
+
+  // 型ガード
+  if (typeof x === "string") { ... }
+  if (x instanceof Error) { ... }
+  function isString(x: unknown): x is string { return typeof x === "string"; }
+
+  // Utility型
+  Partial<T>       // 全プロパティをオプショナルに
+  Required<T>      // 全プロパティを必須に
+  Readonly<T>      // 読み取り専用
+  Pick<T, "a"|"b"> // 一部を選択
+  Omit<T, "a">     // 一部を除外
+  Record<K, V>     // キー・値の型を指定したオブジェクト
+  ReturnType<F>    // 関数の戻り値型
+
+■ DOM操作(ブラウザJS)
+  document.getElementById("id")
+  document.querySelector(".class")
+  document.querySelectorAll("div")
+  el.textContent = "テキスト"
+  el.innerHTML = "<b>HTML</b>"
+  el.style.color = "red"
+  el.classList.add("active")
+  el.classList.remove("active")
+  el.classList.toggle("active")
+  el.setAttribute("href", "#")
+  el.addEventListener("click", handler)
+  el.removeEventListener("click", handler)
+  el.addEventListener("click", handler, { once: true })
+
+  // 作成・追加・削除
+  const div = document.createElement("div");
+  parent.appendChild(div)
+  parent.prepend(div)
+  div.remove()
+
+  // イベント伝播
+  e.preventDefault()   // デフォルト動作を止める
+  e.stopPropagation()  // バブリングを止める
+
+■ Node.js
+  // ファイル操作
+  import fs from "fs/promises";
+  const content = await fs.readFile("file.txt", "utf-8");
+  await fs.writeFile("out.txt", "内容");
+  await fs.appendFile("log.txt", "追記\n");
+  const files = await fs.readdir("./dir");
+  const stat = await fs.stat("file.txt");
+  await fs.mkdir("dir", { recursive: true });
+  await fs.unlink("file.txt");
+
+  // パス操作
+  import path from "path";
+  path.join("dir", "file.txt")
+  path.resolve("./file.txt")
+  path.dirname("/a/b/c.txt")   // "/a/b"
+  path.basename("/a/b/c.txt")  // "c.txt"
+  path.extname("file.txt")     // ".txt"
+
+  // HTTPサーバー
+  import http from "http";
+  const server = http.createServer((req, res) => {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("Hello!");
+  });
+  server.listen(3000);
+
+  // 環境変数
+  process.env.NODE_ENV
+  process.argv         // コマンドライン引数
+
+■ よく使うWebフレームワーク・ライブラリ
+  Express.js      # シンプルなWebサーバー
+  Fastify         # 高速Webサーバー
+  React           # UIライブラリ
+  Vue.js          # UIフレームワーク
+  Next.js         # React+SSR
+  Vite            # ビルドツール
+  Prisma          # TypeScript ORM
+  Socket.io       # WebSocket
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 4: HTML / CSS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ HTMLの基本構造
+  <!DOCTYPE html>
+  <html lang="ja">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タイトル</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <!-- コメント -->
+    <script src="app.js" defer></script>
+  </body>
+  </html>
+
+■ よく使うHTMLタグ
+  見出し:   h1 h2 h3 h4 h5 h6
+  段落:     p
+  リンク:   a href="URL" target="_blank" rel="noopener"
+  画像:     img src="url" alt="説明" loading="lazy"
+  リスト:   ul > li (順不同) / ol > li (順序付き)
+  テーブル: table > thead/tbody > tr > th/td
+  フォーム: form > input, select, textarea, button
+  div:      汎用ブロック要素
+  span:     汎用インライン要素
+  section, article, header, footer, main, nav, aside  # セマンティック要素
+  button type="button/submit/reset"
+  input type="text/password/email/number/checkbox/radio/file/range/date"
+  input required / placeholder / maxlength / pattern
+  select > option
+  textarea rows cols
+
+■ CSSの基本
+  /* セレクタ */
+  div          { }  /* 要素 */
+  .class       { }  /* クラス */
+  #id          { }  /* ID */
+  div.class    { }  /* 要素+クラス */
+  div > p      { }  /* 直接の子 */
+  div p        { }  /* 子孫 */
+  div + p      { }  /* 隣接兄弟 */
+  div ~ p      { }  /* 全兄弟 */
+  a:hover      { }  /* 疑似クラス */
+  div::before  { }  /* 疑似要素 */
+  [attr="val"] { }  /* 属性 */
+
+■ ボックスモデル
+  margin    外側の余白(隣接する要素との距離)
+  border    枠線
+  padding   内側の余白(content領域との距離)
+  content   コンテンツ領域
+
+  box-sizing: border-box  /* padding/borderをwidthに含める(推奨) */
+
+■ Flexbox
+  .container {
+    display: flex;
+    flex-direction: row | column;         /* 主軸の方向 */
+    justify-content: flex-start | center | flex-end | space-between | space-around;
+    align-items: stretch | center | flex-start | flex-end;
+    flex-wrap: nowrap | wrap;
+    gap: 16px;
+  }
+  .item {
+    flex: 1;            /* flex-grow: 1 */
+    flex: 0 0 200px;    /* grow shrink basis */
+    align-self: center;
+    order: 2;
+  }
+
+■ CSS Grid
+  .container {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    grid-template-rows: auto;
+    gap: 16px;
+    grid-template-areas:
+      "header header"
+      "sidebar main"
+      "footer footer";
+  }
+  .item {
+    grid-column: 1 / 3;      /* 列1〜3 */
+    grid-row: span 2;         /* 2行分占有 */
+    grid-area: header;
+  }
+
+■ CSS変数(カスタムプロパティ)
+  :root {
+    --color-primary: #3b82f6;
+    --spacing-md: 16px;
+  }
+  .btn { background: var(--color-primary); }
+
+■ レスポンシブデザイン(メディアクエリ)
+  @media (max-width: 768px) {
+    .container { flex-direction: column; }
+  }
+  @media (prefers-color-scheme: dark) { ... }
+  @media (prefers-reduced-motion: reduce) { ... }
+
+■ アニメーション
+  /* トランジション */
+  .btn { transition: background 0.3s ease, transform 0.2s; }
+  .btn:hover { transform: scale(1.05); }
+
+  /* キーフレームアニメーション */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .el { animation: fadeIn 0.5s ease forwards; }
+
+■ よく使うCSSプロパティ
+  display: block | inline | inline-block | flex | grid | none
+  position: static | relative | absolute | fixed | sticky
+  top / right / bottom / left
+  z-index
+  overflow: hidden | auto | scroll | visible
+  opacity: 0〜1
+  cursor: pointer | default | not-allowed
+  user-select: none
+  pointer-events: none
+  border-radius
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2)
+  background: linear-gradient(135deg, #f00, #00f)
+  filter: blur(4px) | brightness(1.2) | grayscale(1)
+  backdrop-filter: blur(10px)
+  transform: translate() scale() rotate() skew()
+  clip-path: circle() | polygon()
+  text-overflow: ellipsis
+  white-space: nowrap
+  word-break: break-all
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 5: SQL / データベース
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ RDBの基本概念
+  テーブル(表): 行(レコード)と列(カラム)で構成
+  主キー(PK): 行を一意に識別するカラム
+  外部キー(FK): 他のテーブルのPKを参照
+  インデックス: 検索を高速化するデータ構造
+  正規化: データの重複を排除して整理すること
+  ACID: Atomicity, Consistency, Isolation, Durability(トランザクションの性質)
+
+■ 基本SQL
+  -- テーブル作成
+  CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    age INTEGER,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  -- 挿入
+  INSERT INTO users (name, email, age) VALUES ('Alice', 'a@b.com', 20);
+
+  -- 取得
+  SELECT * FROM users;
+  SELECT id, name FROM users WHERE age > 18;
+  SELECT * FROM users ORDER BY name ASC LIMIT 10 OFFSET 20;
+  SELECT * FROM users WHERE name LIKE '%alice%';
+  SELECT * FROM users WHERE email IS NOT NULL;
+  SELECT * FROM users WHERE id IN (1, 2, 3);
+
+  -- 更新
+  UPDATE users SET age = 21 WHERE id = 1;
+
+  -- 削除
+  DELETE FROM users WHERE id = 1;
+
+  -- テーブル削除
+  DROP TABLE users;
+  DROP TABLE IF EXISTS users;
+
+■ JOIN
+  -- INNER JOIN: 両テーブルに存在する行のみ
+  SELECT u.name, o.total
+  FROM users u
+  INNER JOIN orders o ON u.id = o.user_id;
+
+  -- LEFT JOIN: 左テーブルは全行、右は一致するもののみ(なければNULL)
+  SELECT u.name, o.total
+  FROM users u
+  LEFT JOIN orders o ON u.id = o.user_id;
+
+  -- RIGHT JOIN / FULL OUTER JOIN も存在
+
+■ 集計
+  SELECT COUNT(*) FROM users;
+  SELECT AVG(age), MAX(age), MIN(age), SUM(age) FROM users;
+  SELECT country, COUNT(*) as count
+  FROM users
+  GROUP BY country
+  HAVING COUNT(*) > 5
+  ORDER BY count DESC;
+
+■ サブクエリ
+  SELECT * FROM users
+  WHERE id IN (SELECT user_id FROM orders WHERE total > 1000);
+
+  -- WITH(CTE: Common Table Expression)
+  WITH active_users AS (
+    SELECT * FROM users WHERE last_login > NOW() - INTERVAL '30 days'
+  )
+  SELECT * FROM active_users WHERE age > 18;
+
+■ インデックス
+  CREATE INDEX idx_users_email ON users(email);
+  CREATE INDEX idx_users_country_age ON users(country, age);
+  -- 検索・JOIN・ORDER BY・WHERE で使うカラムに作成
+  -- 更新は遅くなるのでむやみに増やさない
+
+■ トランザクション
+  BEGIN;
+  UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+  UPDATE accounts SET balance = balance + 100 WHERE id = 2;
+  COMMIT;   -- 確定
+  ROLLBACK; -- 取り消し
+
+■ よく使うPostgreSQL機能
+  SERIAL / BIGSERIAL      # 自動採番
+  UUID                    # uuid_generate_v4()
+  JSONB                   # JSON型(インデックス可)
+  ARRAY                   # 配列型
+  TIMESTAMPTZ             # タイムゾーン付き日時
+  NOW()                   # 現在時刻
+  INTERVAL '7 days'       # 期間
+  COALESCE(x, y)          # 最初のNULLでない値
+  NULLIF(x, y)            # x==yならNULL
+  CASE WHEN ... THEN ... ELSE ... END
+  DISTINCT                # 重複除去
+  WINDOW関数: ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)
+
+■ NoSQL(概念)
+  MongoDB: ドキュメント型(JSONライクなBSON)
+  Redis: キーバリュー型、超高速、キャッシュに最適
+  Elasticsearch: 全文検索特化
+  DynamoDB: AWSのサーバーレスNoSQL
+  使い分け: 高速キャッシュ→Redis, 柔軟スキーマ→MongoDB, 全文検索→Elasticsearch
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 6: C言語
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 基本
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <string.h>
+
+  int main(void) {
+      printf("Hello, World!\n");
+      return 0;
+  }
+
+■ 型
+  char      1バイト文字
+  int       整数(通常4バイト)
+  long      長整数
+  float     単精度浮動小数点
+  double    倍精度浮動小数点
+  void      型なし
+  _Bool     真偽値
+
+  unsigned int  符号なし整数
+  size_t        配列インデックス・サイズ用
+
+■ ポインタ
+  int x = 10;
+  int *p = &x;      // xのアドレスをpに格納
+  *p = 20;          // pが指す値を変更 → xも20になる
+  printf("%d", *p); // 間接参照
+
+  // 配列とポインタ
+  int arr[] = {1, 2, 3};
+  int *p = arr;         // 先頭要素へのポインタ
+  *(p + 1)              // arr[1]と同じ
+
+■ 動的メモリ確保
+  int *arr = malloc(sizeof(int) * 10);
+  if (arr == NULL) { /* エラー処理 */ }
+  arr[0] = 42;
+  free(arr);   // 必ず解放する
+
+  realloc(ptr, new_size);  // サイズ変更
+
+■ 構造体
+  struct Point {
+      int x;
+      int y;
+  };
+  struct Point p = {10, 20};
+  p.x = 30;
+
+  // ポインタ経由
+  struct Point *pp = &p;
+  pp->x = 40;
+
+  // typedef
+  typedef struct { int x; int y; } Point;
+  Point p2 = {1, 2};
+
+■ 文字列(C文字列 = char配列)
+  char s[] = "hello";   // ヌル終端文字列
+  strlen(s)             // 長さ
+  strcpy(dst, src)      // コピー
+  strncpy(dst, src, n)  // 安全なコピー
+  strcat(dst, src)      // 連結
+  strcmp(s1, s2)        // 比較(0なら同じ)
+  sprintf(buf, "%d", x) // フォーマット
+
+■ ファイル操作
+  FILE *fp = fopen("file.txt", "r");
+  fscanf(fp, "%s", buf);
+  fprintf(fp, "%d\n", x);
+  fclose(fp);
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 7: Rust
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 基本
+  fn main() {
+      println!("Hello, World!");
+  }
+
+■ 所有権(Ownership)
+  Rustの最大の特徴。GCなしでメモリ安全を実現。
+  ルール:
+    1. 各値は1つの所有者を持つ
+    2. 所有者がスコープを抜けると値が解放される
+    3. 同時に複数の所有者は持てない
+
+  let s1 = String::from("hello");
+  let s2 = s1;     // s1の所有権がs2に移動(move)
+  // println!("{}", s1);  // エラー! s1は無効
+
+  let s3 = s2.clone();  // ディープコピー
+
+■ 借用(Borrowing)と参照
+  let s = String::from("hello");
+  let len = calc_len(&s);  // 参照を渡す(所有権は移動しない)
+
+  fn calc_len(s: &String) -> usize { s.len() }
+
+  // 可変参照
+  let mut s = String::from("hello");
+  change(&mut s);
+  fn change(s: &mut String) { s.push_str(", world"); }
+
+  // ルール: 可変参照は同時に1つだけ / 不変参照は複数OK
+
+■ ライフタイム
+  fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+      if x.len() > y.len() { x } else { y }
+  }
+
+■ データ型
+  i8 i16 i32 i64 i128 isize    // 符号付き整数
+  u8 u16 u32 u64 u128 usize    // 符号なし整数
+  f32 f64                       // 浮動小数点
+  bool                          // 真偽値
+  char                          // Unicodeスカラー値
+  str / String                  // 文字列スライス / 所有権付き文字列
+  &str                          // 文字列参照(不変)
+
+■ コレクション
+  Vec<T>: 可変長配列
+    let v: Vec<i32> = vec![1, 2, 3];
+    v.push(4); v.pop(); v[0]; v.len();
+
+  HashMap<K,V>:
+    use std::collections::HashMap;
+    let mut map = HashMap::new();
+    map.insert("key", 1);
+    map.get("key");
+
+■ enum と match
+  enum Direction { North, South, East, West }
+  enum Option<T> { Some(T), None }       // 標準ライブラリ
+  enum Result<T, E> { Ok(T), Err(E) }   // 標準ライブラリ
+
+  match dir {
+      Direction::North => println!("北"),
+      Direction::South | Direction::East => println!("他"),
+      _ => println!("その他"),
+  }
+
+  // if let
+  if let Some(x) = some_value { println!("{}", x); }
+
+■ 構造体
+  struct Point { x: f64, y: f64 }
+  impl Point {
+      fn new(x: f64, y: f64) -> Self { Point { x, y } }
+      fn distance(&self) -> f64 { (self.x*self.x + self.y*self.y).sqrt() }
+  }
+
+■ トレイト(Trait)
+  trait Greet {
+      fn hello(&self) -> String;
+      fn hi(&self) -> String { format!("Hi! {}", self.hello()) }
+  }
+  impl Greet for Point {
+      fn hello(&self) -> String { String::from("Hello from Point") }
+  }
+
+■ エラー処理
+  fn divide(a: f64, b: f64) -> Result<f64, String> {
+      if b == 0.0 { Err("ゼロ除算".to_string()) }
+      else { Ok(a / b) }
+  }
+  let r = divide(10.0, 2.0)?;  // ?演算子: Errなら早期return
+
+■ 非同期(Tokio)
+  use tokio;
+  #[tokio::main]
+  async fn main() {
+      let result = fetch_data().await;
+  }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 8: Go (Golang)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 基本
+  package main
+  import "fmt"
+
+  func main() {
+      fmt.Println("Hello, World!")
+  }
+
+■ 型と変数
+  var x int = 10
+  y := 20            // 短縮宣言
+  const Pi = 3.14
+
+  // 基本型
+  bool, string
+  int, int8, int16, int32, int64
+  uint, uint8(=byte), uint16, uint32, uint64
+  float32, float64
+  complex64, complex128
+  rune(=int32)  // Unicode文字
+
+■ 複合型
+  // 配列(固定長)
+  arr := [3]int{1, 2, 3}
+
+  // スライス(可変長)
+  s := []int{1, 2, 3}
+  s = append(s, 4)
+  s[1:3]                      // スライシング
+  make([]int, 5, 10)          // len=5, cap=10
+
+  // マップ
+  m := map[string]int{"a": 1}
+  m["b"] = 2
+  v, ok := m["c"]             // okで存在確認
+
+  // 構造体
+  type Point struct { X, Y float64 }
+  p := Point{X: 1, Y: 2}
+
+■ 制御
+  if x > 0 { ... } else { ... }
+  if v, ok := m["key"]; ok { ... }  // 初期化文付きif
+
+  for i := 0; i < 5; i++ { ... }
+  for i, v := range slice { ... }
+  for k, v := range myMap { ... }
+  for { ... }                        // 無限ループ
+
+  switch x {
+  case 1: ...
+  case 2, 3: ...
+  default: ...
+  }
+
+■ 関数
+  func add(a, b int) int { return a + b }
+  func divmod(a, b int) (int, int) { return a/b, a%b }  // 複数戻り値
+  func greet(names ...string) { ... }                    // 可変長引数
+  d, m := divmod(10, 3)
+
+  // エラー戻り値慣習
+  func doSomething() (string, error) {
+      if failed { return "", errors.New("失敗") }
+      return "成功", nil
+  }
+  result, err := doSomething()
+  if err != nil { log.Fatal(err) }
+
+■ インターフェース
+  type Shape interface {
+      Area() float64
+      Perimeter() float64
+  }
+  // インターフェースは暗黙的に実装(implements宣言不要)
+
+■ ゴルーチンとチャネル
+  // ゴルーチン: 軽量スレッド
+  go func() { fmt.Println("並列実行") }()
+
+  // チャネル: ゴルーチン間通信
+  ch := make(chan int)
+  go func() { ch <- 42 }()
+  v := <-ch
+
+  // バッファ付きチャネル
+  ch := make(chan int, 10)
+
+  // select: 複数チャネルを待機
+  select {
+  case v := <-ch1: ...
+  case ch2 <- x: ...
+  case <-time.After(time.Second): ...  // タイムアウト
+  }
+
+■ defer / panic / recover
+  defer fmt.Println("最後に実行")  // 関数終了時に実行
+  panic("致命的エラー")
+  recover()  // panicを捕捉(deferの中で使う)
+
+■ パッケージ管理
+  go mod init mymodule
+  go get github.com/gin-gonic/gin
+  go build / go run / go test
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 9: Java
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 基本
+  public class Main {
+      public static void main(String[] args) {
+          System.out.println("Hello, World!");
+      }
+  }
+
+■ データ型
+  // プリミティブ型
+  byte(1), short(2), int(4), long(8)
+  float(4), double(8)
+  char(2), boolean
+  // 参照型
+  String, Integer, List<T>, Map<K,V> など
+
+■ OOP
+  public class Animal {
+      private String name;
+
+      public Animal(String name) { this.name = name; }
+      public String getName() { return name; }
+      public String speak() { return name + " speaks"; }
+  }
+
+  public class Dog extends Animal {
+      public Dog(String name) { super(name); }
+      @Override
+      public String speak() { return getName() + " says Woof!"; }
+  }
+
+  // インターフェース
+  public interface Flyable { void fly(); }
+  // 抽象クラス
+  public abstract class Shape { public abstract double area(); }
+
+■ コレクション
+  List<String> list = new ArrayList<>();
+  list.add("hello"); list.get(0); list.size();
+
+  Map<String, Integer> map = new HashMap<>();
+  map.put("key", 1); map.get("key"); map.containsKey("key");
+
+  Set<String> set = new HashSet<>();
+
+  // Stream API
+  list.stream()
+      .filter(s -> s.length() > 3)
+      .map(String::toUpperCase)
+      .sorted()
+      .collect(Collectors.toList());
+
+■ 例外処理
+  try {
+      int x = Integer.parseInt("abc");
+  } catch (NumberFormatException e) {
+      System.err.println(e.getMessage());
+  } finally {
+      System.out.println("常に実行");
+  }
+
+■ ジェネリクス
+  public class Box<T> {
+      private T value;
+      public T get() { return value; }
+      public void set(T value) { this.value = value; }
+  }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 10: アルゴリズムとデータ構造
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 計算量(Big-O記法)
+  O(1)       定数: ハッシュテーブル参照
+  O(log n)   対数: 二分探索
+  O(n)       線形: 配列の線形探索
+  O(n log n) 準線形: マージソート、クイックソート平均
+  O(n²)      二乗: バブルソート、選択ソート
+  O(2^n)     指数: 総当たり(フィボナッチ再帰)
+  O(n!)      階乗: 順列全列挙
+
+■ データ構造
+  配列(Array)
+    - ランダムアクセス: O(1)
+    - 挿入/削除(末尾以外): O(n)
+    - メモリが連続
+
+  連結リスト(Linked List)
+    - 挿入/削除(先頭): O(1)
+    - ランダムアクセス: O(n)
+    - 単方向/双方向
+
+  スタック(Stack): LIFO
+    push, pop, peek: O(1)
+    用途: 関数呼び出し、括弧チェック、DFS
+
+  キュー(Queue): FIFO
+    enqueue, dequeue: O(1)
+    用途: BFS、タスクスケジューリング
+
+  ハッシュテーブル(Hash Map)
+    参照・挿入・削除: O(1) 平均
+    衝突処理: チェイン法、オープンアドレス法
+
+  二分木(Binary Tree)
+    二分探索木(BST): 左<根<右
+    平衡木: AVL木、赤黒木 → 常に O(log n)
+
+  ヒープ(Heap)
+    最大/最小ヒープ: 親>=子 or 親<=子
+    挿入・取得: O(log n)
+    用途: 優先度キュー
+
+  グラフ(Graph)
+    有向/無向、重み付き/なし
+    隣接リスト / 隣接行列で表現
+
+  トライ木(Trie)
+    文字列の前方一致検索に最適
+
+■ ソートアルゴリズム
+  バブルソート:   O(n²) / O(1)空間  シンプルだが遅い
+  選択ソート:     O(n²) / O(1)空間
+  挿入ソート:     O(n²) / O(1)空間  小数・ほぼ整列済みに強い
+  マージソート:   O(n log n) / O(n)空間  安定ソート
+  クイックソート: O(n log n)平均 / O(n²)最悪  最速に近い
+  ヒープソート:   O(n log n) / O(1)空間  安定でない
+  カウントソート: O(n+k) / O(k)  整数限定
+  基数ソート:     O(nk)  整数・文字列向け
+
+■ 探索アルゴリズム
+  線形探索: O(n)
+  二分探索: O(log n) ※ソート済み配列に適用
+  BFS(幅優先): キュー使用。最短経路に使う
+  DFS(深さ優先): スタック/再帰。経路探索、トポロジカルソート
+
+■ 動的計画法(DP)
+  問題を小さな部分問題に分解して解く。
+  メモ化: 計算済み結果をキャッシュ(トップダウン)
+  タブ化: ボトムアップで配列を埋める
+
+  代表例:
+  - フィボナッチ数列
+  - ナップサック問題
+  - 最長共通部分列(LCS)
+  - 最短経路(ベルマンフォード)
+
+■ グラフアルゴリズム
+  ダイクストラ法: 非負重み最短経路 O((V+E)log V)
+  ベルマンフォード: 負重み可 O(VE)
+  フロイド–ワーシャル: 全頂点間最短 O(V³)
+  プリム法/クラスカル法: 最小全域木
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 11: Webの仕組み
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ HTTPの基本
+  リクエスト: クライアント → サーバー
+  レスポンス: サーバー → クライアント
+
+  メソッド:
+    GET     リソース取得(副作用なし)
+    POST    データ送信・リソース作成
+    PUT     リソース全体を置き換え
+    PATCH   リソースの一部を更新
+    DELETE  リソース削除
+    HEAD    ヘッダーのみ取得
+    OPTIONS CORSプリフライト
+
+  ステータスコード:
+    200 OK               成功
+    201 Created          作成成功
+    204 No Content       成功(ボディなし)
+    301 Moved Permanently リダイレクト(永続)
+    302 Found            リダイレクト(一時)
+    304 Not Modified     キャッシュ有効
+    400 Bad Request      クライアントエラー
+    401 Unauthorized     認証必要
+    403 Forbidden        権限なし
+    404 Not Found        リソースなし
+    405 Method Not Allowed
+    409 Conflict         競合
+    422 Unprocessable Entity
+    429 Too Many Requests レート制限
+    500 Internal Server Error
+    502 Bad Gateway
+    503 Service Unavailable
+
+  重要なヘッダー:
+    Content-Type: application/json; charset=utf-8
+    Authorization: Bearer <token>
+    Cache-Control: no-cache / max-age=3600 / public / private
+    CORS:
+      Access-Control-Allow-Origin: *
+      Access-Control-Allow-Methods: GET,POST,PUT,DELETE
+    Cookie: セッション管理
+    User-Agent: クライアント識別
+    X-Request-ID: リクエスト追跡
+
+■ REST API設計
+  リソースはURLで表現: /users, /users/123, /users/123/orders
+  動詞はHTTPメソッドで表現(URLに動詞を入れない)
+  ○ GET /users/123
+  × GET /getUser?id=123
+
+  バージョニング: /api/v1/users
+  フィルタ・ページング: /users?status=active&page=2&limit=20
+  ソート: /users?sort=-created_at (- で降順)
+
+■ 認証・認可
+  セッション方式: Cookie + サーバー側セッションストア
+  JWT: ヘッダー.ペイロード.署名 / Authorization: Bearer <token>
+  OAuth2: 第三者認証フロー
+  API Key: シンプルな機械間認証
+
+■ WebSocket
+  HTTP→双方向TCP接続にアップグレード
+  リアルタイム通信(チャット、通知、ゲーム)に使う
+
+■ HTTPSとTLS
+  TLS: 暗号化通信プロトコル
+  証明書: CA(認証局)が発行した公開鍵証明書
+  HSTS: HTTPSを強制するヘッダー
+
+■ DNS
+  ドメイン名→IPアドレスに変換する仕組み
+  Aレコード: ドメイン→IPv4
+  AAAAレコード: ドメイン→IPv6
+  CNAMEレコード: ドメイン→別ドメイン
+  MXレコード: メールサーバー
+  TTL: DNSキャッシュの有効期間
+
+■ CDN(Content Delivery Network)
+  世界中のエッジサーバーにコンテンツをキャッシュ
+  レイテンシ削減・オリジンサーバーの負荷軽減
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 12: セキュリティ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 代表的な脆弱性(OWASP Top 10)
+  SQLインジェクション
+    危険: "SELECT * FROM users WHERE name='" + input + "'"
+    対策: プリペアドステートメント / パラメータ化クエリ
+
+  XSS(クロスサイトスクリプティング)
+    危険: ユーザー入力をそのままHTMLに出力
+    対策: エスケープ、CSP(Content-Security-Policy)
+
+  CSRF(クロスサイトリクエストフォージェリ)
+    危険: 他サイトから意図しないリクエストを送信させる
+    対策: CSRFトークン、SameSite Cookie
+
+  認証・セッション管理の不備
+    対策: 強力なハッシュ(bcrypt/argon2)、セッション固定攻撃対策
+
+  安全でない直接オブジェクト参照(IDOR)
+    危険: /api/user/1 → /api/user/2 に変えてアクセス
+    対策: 認可チェック、UUIDの使用
+
+  パストラバーサル
+    危険: ../../etc/passwd
+    対策: パスの正規化・境界チェック
+
+■ 暗号化
+  対称暗号: AES-256-GCM (高速、鍵管理が課題)
+  非対称暗号: RSA, ECDSA (鍵交換、署名)
+  ハッシュ: SHA-256, SHA-3 (一方向、パスワードにはbcrypt/argon2)
+  HMAC: 秘密鍵+ハッシュ → メッセージ認証コード
+
+■ セキュリティのベストプラクティス
+  - 入力は常にバリデーション・サニタイズ
+  - 最小権限の原則(必要な権限のみ付与)
+  - 秘密情報は環境変数に(コードにハードコードしない)
+  - 依存ライブラリは定期的に更新
+  - エラーメッセージに詳細を出しすぎない
+  - ログに個人情報・シークレットを出力しない
+  - HTTPSを必ず使う
+  - レート制限を実装する
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 13: Git / バージョン管理
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 基本コマンド
+  git init                      # リポジトリ初期化
+  git clone <url>               # リモートを複製
+  git status                    # 変更状態確認
+  git add <file>                # ステージング
+  git add .                     # 全変更をステージ
+  git commit -m "メッセージ"     # コミット
+  git push origin main          # リモートに送信
+  git pull                      # リモートから取得・マージ
+  git fetch                     # リモートから取得(マージしない)
+
+■ ブランチ
+  git branch                    # ブランチ一覧
+  git branch feature/login      # ブランチ作成
+  git switch feature/login      # ブランチ切替
+  git switch -c feature/login   # 作成+切替
+  git merge feature/login       # マージ
+  git rebase main               # リベース
+  git branch -d feature/login   # ブランチ削除
+
+■ 履歴・差分
+  git log --oneline --graph     # グラフ付きログ
+  git diff                      # 未ステージの差分
+  git diff HEAD                 # 最新コミットとの差分
+  git show <commit>             # コミットの詳細
+
+■ 取り消し
+  git restore <file>            # 変更を元に戻す(未ステージ)
+  git restore --staged <file>   # ステージを取り消し
+  git commit --amend            # 直前のコミットを修正
+  git revert <commit>           # コミットを打ち消すコミット作成
+  git stash                     # 変更を一時退避
+  git stash pop                 # 退避した変更を戻す
+
+■ .gitignore
+  node_modules/
+  *.env
+  .DS_Store
+  __pycache__/
+  *.pyc
+  dist/
+  build/
+
+■ コミットメッセージ規約(Conventional Commits)
+  feat: 新機能
+  fix: バグ修正
+  docs: ドキュメント変更
+  style: フォーマット変更(動作に影響なし)
+  refactor: リファクタリング
+  test: テスト追加・修正
+  chore: ビルド・ツール設定変更
+
+■ ブランチ戦略
+  main/master: 本番用
+  develop: 開発統合ブランチ
+  feature/*: 機能開発
+  hotfix/*: 緊急バグ修正
+  release/*: リリース準備
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 14: Docker / インフラ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ Dockerの基本概念
+  イメージ: 実行環境の設計図(読み取り専用)
+  コンテナ: イメージから起動した実行中インスタンス
+  Dockerfile: イメージをビルドするための手順書
+  レジストリ: イメージの保存場所(Docker Hub, ECRなど)
+
+■ 基本コマンド
+  docker build -t myapp:latest .
+  docker run -p 8080:3000 -e NODE_ENV=production myapp
+  docker run -d --name myapp myapp:latest    # バックグラウンド実行
+  docker ps                                  # 実行中コンテナ一覧
+  docker ps -a                               # 全コンテナ一覧
+  docker stop myapp
+  docker rm myapp
+  docker images
+  docker rmi myapp:latest
+  docker logs myapp -f                       # ログ追跡
+  docker exec -it myapp bash                 # コンテナに入る
+  docker pull nginx:latest
+
+■ Dockerfile
+  FROM node:20-alpine
+  WORKDIR /app
+  COPY package*.json ./
+  RUN npm ci --production
+  COPY . .
+  EXPOSE 3000
+  ENV NODE_ENV=production
+  CMD ["node", "server.js"]
+
+  # マルチステージビルド
+  FROM node:20 AS builder
+  RUN npm run build
+
+  FROM nginx:alpine
+  COPY --from=builder /app/dist /usr/share/nginx/html
+
+■ docker-compose.yml
+  version: "3.8"
+  services:
+    app:
+      build: .
+      ports: ["3000:3000"]
+      environment:
+        DATABASE_URL: postgres://user:pass@db:5432/mydb
+      depends_on: [db]
+    db:
+      image: postgres:16
+      volumes:
+        - pg_data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_PASSWORD: pass
+  volumes:
+    pg_data:
+
+■ CI/CD(GitHub Actions例)
+  name: Deploy
+  on: push: branches: [main]
+  jobs:
+    deploy:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - run: npm ci
+        - run: npm test
+        - run: docker build -t myapp .
+        - run: docker push registry/myapp
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 15: 正規表現
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 基本記号
+  .       任意の1文字(改行を除く)
+  ^       行頭
+  $       行末
+  *       直前を0回以上繰り返し
+  +       直前を1回以上繰り返し
+  ?       直前を0回または1回
+  {n}     直前をn回繰り返し
+  {n,m}   直前をn〜m回繰り返し
+  {n,}    直前をn回以上繰り返し
+
+■ 文字クラス
+  [abc]   a, b, c のいずれか
+  [^abc]  a, b, c 以外
+  [a-z]   a〜z
+  [A-Z]   A〜Z
+  [0-9]   数字
+  \d      数字 [0-9]
+  \D      数字以外
+  \w      英数字+アンダースコア [a-zA-Z0-9_]
+  \W      \w以外
+  \s      空白文字(スペース、タブ、改行)
+  \S      空白以外
+
+■ グループと論理
+  (abc)   グループ化(キャプチャ)
+  (?:abc) グループ化(非キャプチャ)
+  a|b     aまたはb
+  (?=abc) 先読み(abcの前)
+  (?!abc) 否定先読み
+  \1      後方参照(1番目のグループ)
+
+■ フラグ
+  i   大文字小文字無視
+  g   全マッチ(グローバル)
+  m   複数行モード(^$が各行に対応)
+  s   .が改行にもマッチ
+
+■ よく使うパターン
+  メールアドレス:  [a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}
+  URL:            https?://[^\s]+
+  日本語:          [\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]
+  電話番号(日本):  0\d{1,4}-\d{1,4}-\d{4}
+  郵便番号:        \d{3}-\d{4}
+  IPアドレス:      (\d{1,3}\.){3}\d{1,3}
+  日付(ISO):      \d{4}-\d{2}-\d{2}
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 16: 設計原則とパターン
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ SOLID原則
+  S: 単一責任の原則  クラスは1つの責任のみ持つ
+  O: 開放/閉鎖原則   拡張に開き、修正に閉じる
+  L: リスコフ置換    サブクラスは親クラスと置き換え可能
+  I: インターフェース分離  必要なものだけ実装させる
+  D: 依存関係逆転    抽象に依存し具象に依存しない
+
+■ DRY / KISS / YAGNI
+  DRY: Don't Repeat Yourself (同じコードを繰り返さない)
+  KISS: Keep It Simple, Stupid (シンプルに保つ)
+  YAGNI: You Aren't Gonna Need It (今必要ないものは作らない)
+
+■ デザインパターン(代表的なもの)
+  生成パターン:
+    Singleton:  インスタンスを1つに制限
+    Factory:    オブジェクトの生成を抽象化
+    Builder:    複雑なオブジェクトを段階的に構築
+
+  構造パターン:
+    Adapter:    互換性のないインターフェースを接続
+    Decorator:  オブジェクトに動的に機能追加
+    Proxy:      別オブジェクトへのアクセスを代理
+
+  振る舞いパターン:
+    Observer:   状態変化を他のオブジェクトに通知
+    Strategy:   アルゴリズムを切り替え可能にする
+    Command:    操作をオブジェクトとしてカプセル化
+
+■ アーキテクチャパターン
+  MVC: Model-View-Controller
+  MVP: Model-View-Presenter
+  MVVM: Model-View-ViewModel
+  Clean Architecture: 依存関係を内向きに
+  マイクロサービス: 機能ごとに独立したサービスに分割
+  イベント駆動: イベントを発行・購読するアーキテクチャ
+
+■ コードの品質
+  命名: 意図が分かる名前(省略しすぎない)
+  関数: 1つのことだけする(20行以内が目安)
+  コメント: WHYを書く(WHATはコードが語る)
+  テスト: ユニットテスト・統合テスト・E2Eテスト
+  コードレビュー: 他者の目で品質を担保
+  リファクタリング: 動作を変えずに構造を改善
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 17: Linux / シェルコマンド
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ ファイル操作
+  ls -la              # 詳細一覧(隠しファイル含む)
+  cd /path/to/dir     # ディレクトリ移動
+  pwd                 # 現在地表示
+  mkdir -p a/b/c      # ディレクトリ作成(中間も作る)
+  touch file.txt      # ファイル作成
+  cp src dst          # コピー
+  cp -r src/ dst/     # ディレクトリのコピー
+  mv src dst          # 移動/リネーム
+  rm file             # 削除
+  rm -rf dir/         # ディレクトリ強制削除(注意!)
+  find . -name "*.js" # ファイル検索
+  find . -type f -newer ref.txt
+
+■ テキスト処理
+  cat file.txt        # 内容表示
+  less file.txt       # ページャーで表示
+  head -n 20 file     # 先頭20行
+  tail -n 20 file     # 末尾20行
+  tail -f log.txt     # リアルタイム追跡
+  grep "pattern" file # パターン検索
+  grep -r "pattern" . # 再帰検索
+  grep -i "pattern"   # 大文字小文字無視
+  grep -v "pattern"   # 逆マッチ
+  sed 's/old/new/g'   # 置換
+  awk '{print $1}'    # 列抽出
+  cut -d',' -f1       # 区切り文字で列抽出
+  sort file           # ソート
+  sort -n             # 数値ソート
+  sort -u             # 重複削除+ソート
+  uniq                # 重複行削除(隣接)
+  wc -l file          # 行数カウント
+  tr 'a-z' 'A-Z'      # 変換
+  diff file1 file2    # 差分
+
+■ プロセス・システム
+  ps aux              # プロセス一覧
+  top / htop          # リアルタイム監視
+  kill <PID>          # プロセス停止(SIGTERM)
+  kill -9 <PID>       # 強制停止(SIGKILL)
+  killall node        # 名前でkill
+  bg / fg / jobs      # バックグラウンド制御
+  nohup cmd &         # ログアウト後も継続
+  df -h               # ディスク使用量
+  du -sh ./dir        # ディレクトリサイズ
+  free -h             # メモリ使用量
+  uname -a            # OS情報
+
+■ ネットワーク
+  curl -X POST -H "Content-Type: application/json" \
+    -d '{"key":"val"}' https://api.example.com/
+  curl -L -o file.zip https://example.com/file.zip
+  wget https://example.com/file
+  ping example.com
+  netstat -tuln       # ポート一覧
+  ss -tuln            # (新版netstat)
+  lsof -i :3000       # ポート使用プロセス確認
+  ssh user@host
+  scp file user@host:/path/
+
+■ シェルスクリプト
+  #!/bin/bash
+  set -euo pipefail   # エラー時即座に停止
+
+  # 変数
+  NAME="World"
+  echo "Hello, $NAME!"
+  echo "Hello, ${NAME}!"
+
+  # 条件
+  if [ "$x" -gt 0 ]; then echo "正"; fi
+  if [ -f "file.txt" ]; then echo "存在"; fi
+  if [ -d "dir" ]; then echo "ディレクトリ"; fi
+
+  # ループ
+  for f in *.txt; do echo "$f"; done
+  for i in {1..5}; do echo $i; done
+  while read line; do echo "$line"; done < file.txt
+
+  # 関数
+  hello() { echo "Hello $1"; }
+  hello "World"
+
+  # 終了コード
+  exit 0   # 成功
+  exit 1   # 失敗
+
+  # コマンド置換
+  NOW=$(date +%Y%m%d)
+  COUNT=$(ls | wc -l)
+
+  # パイプ
+  cat log.txt | grep ERROR | sort | uniq -c | sort -rn
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 18: コーディングの実践的なコツ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ デバッグの手順
+  1. エラーメッセージを全部読む
+  2. どのファイルの何行目か確認
+  3. 直前に変更した箇所を疑う
+  4. console.log / print でデータを確認
+  5. 最小再現コードを作る
+  6. 検索: "エラーメッセージ そのまま" でGoogle/Stack Overflow
+
+■ 良いコードを書くコツ
+  - 変数名・関数名は「動詞+名詞」で意図を示す
+    × d  ○ userData  ○ getUserById
+  - マジックナンバーを使わない → 定数に名前をつける
+    × if status == 2  ○ if status == STATUS_APPROVED
+  - 早期リターンで深いネストを避ける
+    × if valid: if admin: if ...
+    ○ if !valid: return; if !admin: return;
+  - エラーは無視しない。必ずハンドリングする
+  - 関数は短く(1画面に収まる程度)
+  - テストを書く習慣をつける
+
+■ パフォーマンス改善
+  - 計測してから最適化する(推測しない)
+  - N+1問題: ループ内でDB問い合わせしない → JOIN or バッチ取得
+  - キャッシュ: 計算済み結果を再利用
+  - インデックス: DBの検索を高速化
+  - 非同期処理: ブロッキングI/Oを避ける
+  - メモ化: 同じ入力の計算結果をキャッシュ
+
+■ よく起きるバグのパターン
+  - オフバイワン: for i in range(n) で n-1 まで
+  - null/undefined参照: チェックを忘れる
+  - 型の不一致: "1" + 1 = "11" (JS) / 1 + "1" = エラー (Python)
+  - 変数のシャドウイング: 外側と同名の変数を内側で定義
+  - 非同期の忘れ: await なしで Promise を扱う
+  - mutability(可変性)の罠: リストを関数に渡して元データが変わる
+  - 浮動小数点誤差: 0.1 + 0.2 ≠ 0.3 → 金融計算には使わない
+
+■ 開発環境のコツ
+  - linter: コードの問題を自動検出 (ESLint, pylint, clippy)
+  - formatter: コードを自動整形 (prettier, black, gofmt)
+  - エディタ設定: .editorconfig で統一
+  - 環境変数: .env ファイル使用(.gitignoreに追加)
+  - ホットリロード: ファイル変更を自動検知して再起動
+
+■ プロとして大切な習慣
+  - コードを書く前に設計を考える(30分の計画が2時間の実装を省く)
+  - 小さく始めて動くものを作る → 拡張する
+  - バージョン管理を細かく使う(作業単位でコミット)
+  - ドキュメントを書く(未来の自分のために)
+  - エラーログを読む習慣をつける
+  - 公式ドキュメントを読む(Stack Overflowより正確)
+  - 他人のコードを読む(GitHubのOSSが最良の教材)
+
+================================================================
+  おわり
+  このマニュアルは各章の入口です。
+  深く学ぶには各言語・技術の公式ドキュメントを参照してください。
+================================================================

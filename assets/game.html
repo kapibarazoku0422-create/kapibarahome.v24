@@ -1,0 +1,2794 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>カピバラクエスト 〜キメ顔の勇者〜</title>
+<style>
+  :root{
+    --ink:#1a1a1a; --paper:#f4ead2; --grass:#8ec06c; --grass2:#7bb05c;
+    --water:#5aa9e6; --tree:#3f7d3a; --path:#d8b88a; --wall:#7a6a55;
+    --panel:#2b2236; --panel2:#3a2f4a; --gold:#ffd34e; --hp:#e8493a; --mp:#3aa0e8;
+    --accent:#c98a3a;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:#15101c;color:#fff;
+    font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    -webkit-user-select:none;user-select:none;overflow:hidden;}
+  #game{position:relative;width:100vw;height:100dvh;display:flex;align-items:center;justify-content:center;}
+  /* 480x320 = 3:2。どの端末でも 3:2 を保ったまま 画面いっぱいに拡大縮小 */
+  canvas{image-rendering:pixelated;background:#0c0a12;
+    box-shadow:0 0 0 4px #000, 0 0 0 8px #443a2a, 0 20px 60px rgba(0,0,0,.6);
+    width:min(100vw, 150dvh); height:min(100dvh, 66.6667vw);
+    touch-action:none;}
+  /* UI overlays */
+  .overlay{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;pointer-events:none;}
+  .hidden{display:none !important;}
+  .title-big{font-size:min(9vw,64px);font-weight:900;letter-spacing:2px;
+    color:var(--gold);text-shadow:0 4px 0 #7a4d12, 0 0 24px rgba(255,211,78,.4);}
+  .title-sub{font-size:min(4vw,22px);color:#fff;margin-top:6px;opacity:.9;}
+  .blink{animation:blink 1s steps(2,end) infinite;}
+  @keyframes blink{50%{opacity:.15;}}
+  .hint{position:absolute;bottom:14px;left:0;right:0;text-align:center;
+    font-size:13px;color:#cdbfa0;opacity:.85;}
+  .credit{position:absolute;top:40px;right:14px;font-size:11px;color:#8a7f6a;}
+  .center-msg{background:rgba(15,10,22,.86);border:3px solid var(--gold);
+    border-radius:14px;padding:26px 34px;max-width:80%;pointer-events:auto;}
+  .center-msg h1{margin:0 0 10px;color:var(--gold);}
+  .center-msg p{margin:6px 0;line-height:1.6;}
+  .btn{pointer-events:auto;margin-top:16px;display:inline-block;cursor:pointer;
+    background:var(--gold);color:#3a2a08;font-weight:800;border:none;
+    padding:10px 22px;border-radius:8px;font-size:16px;}
+  .btn:active{transform:translateY(2px);}
+  /* 画面コントローラー（iPad/スマホ用） */
+  #controller{position:absolute;inset:0;pointer-events:none;z-index:22;}
+  #controller.hidden{display:none;}
+  .ctrl{position:absolute;bottom:calc(80px + env(safe-area-inset-bottom));touch-action:none;}
+  .ctrl button{pointer-events:auto;touch-action:none;border:none;color:#2a1e06;
+    font-weight:900;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+    font-family:inherit;}
+  /* 十字キー（左） */
+  #pad{left:calc(20px + env(safe-area-inset-left));width:174px;height:174px;}
+  .dbtn{position:absolute;width:58px;height:58px;border-radius:13px;font-size:22px;
+    background:rgba(255,211,78,.82);box-shadow:0 3px 0 rgba(0,0,0,.4);}
+  .dbtn.up{left:58px;top:0;} .dbtn.down{left:58px;bottom:0;}
+  .dbtn.left{left:0;top:58px;} .dbtn.right{right:0;top:58px;}
+  .dcenter{position:absolute;left:58px;top:58px;width:58px;height:58px;
+    background:rgba(255,211,78,.16);border-radius:10px;}
+  /* A/Bボタン（右） */
+  #abtns{right:calc(20px + env(safe-area-inset-right));display:flex;align-items:flex-end;gap:16px;}
+  .abtn{border-radius:50%;box-shadow:0 3px 0 rgba(0,0,0,.4);}
+  .abtn.a{width:82px;height:82px;font-size:17px;background:rgba(126,200,108,.92);}
+  .abtn.b{width:66px;height:66px;font-size:14px;background:rgba(228,120,120,.92);}
+  .ctrl button.on,.ctrl button:active{filter:brightness(1.25);transform:translateY(2px);
+    box-shadow:0 1px 0 rgba(0,0,0,.4);}
+  /* コントローラー表示トグル */
+  #padToggle{position:absolute;top:8px;right:14px;z-index:23;pointer-events:auto;
+    background:rgba(0,0,0,.5);color:#ffd34e;border:1px solid #7a6a3a;border-radius:6px;
+    font-size:14px;padding:4px 8px;cursor:pointer;opacity:.6;}
+  #padToggle:hover{opacity:1;}
+  /* 管理者チートパネル */
+  #cheatBtn{position:absolute;top:8px;left:8px;z-index:20;pointer-events:auto;
+    background:rgba(0,0,0,.55);color:#9af;border:1px solid #468;border-radius:6px;
+    font-size:11px;padding:3px 7px;cursor:pointer;opacity:.5;}
+  #cheatBtn:hover{opacity:1;}
+  #cheat{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;
+    background:rgba(5,3,10,.72);pointer-events:auto;}
+  #cheatBox{background:#15101f;border:2px solid #ff4d8d;border-radius:12px;
+    width:min(92%,460px);max-height:90%;overflow:auto;padding:16px 18px;
+    box-shadow:0 0 30px rgba(255,77,141,.35);}
+  #cheatBox h2{margin:0 0 4px;color:#ff7db0;font-size:20px;}
+  #cheatBox .sub{color:#9a8fb0;font-size:12px;margin-bottom:12px;}
+  #cheatBox .sec{color:#ffd34e;font-size:12px;margin:12px 0 6px;border-bottom:1px solid #3a2f4a;padding-bottom:3px;}
+  .cheatGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .cheatGrid button{cursor:pointer;border:1px solid #5a4a6a;border-radius:7px;
+    background:#241a33;color:#fff;padding:9px 6px;font-size:13px;font-weight:600;}
+  .cheatGrid button:hover{background:#33264a;border-color:#ff7db0;}
+  .cheatGrid button.on{background:#3a5a2a;border-color:#8ec06c;}
+  .cheatGrid button.danger{border-color:#a33;color:#ffb0b0;}
+  .cheatGrid .wide{grid-column:1 / -1;}
+  #cheatClose{width:100%;margin-top:14px;background:#ff4d8d;color:#fff;border:none;
+    border-radius:8px;padding:10px;font-size:15px;font-weight:800;cursor:pointer;}
+  #cheatMsg{color:#8ec06c;font-size:12px;min-height:16px;margin-top:8px;text-align:center;}
+  #cheatLvInput,.evInput{background:#1a1228;border:1px solid #5a4a6a;border-radius:7px;color:#fff;
+    padding:6px 8px;font-size:13px;width:100%;box-sizing:border-box;}
+  .evInput::placeholder{color:#8a7fa0;}
+  /* ランキングボタン */
+  #rankingBtn{position:absolute;top:8px;right:58px;z-index:23;pointer-events:auto;
+    background:rgba(0,0,0,.5);color:#ffd34e;border:1px solid #7a5a20;border-radius:6px;
+    font-size:14px;padding:4px 8px;cursor:pointer;opacity:.6;}
+  #rankingBtn:hover{opacity:1;}
+  /* オンライン対戦ボタン */
+  #onlineBtn{position:absolute;top:8px;right:178px;z-index:23;pointer-events:auto;
+    background:rgba(0,0,0,.5);color:#80e080;border:1px solid #406040;border-radius:6px;
+    font-size:14px;padding:4px 8px;cursor:pointer;opacity:.6;}
+  #onlineBtn:hover{opacity:1;}
+  /* ステージ移動ボタン */
+  #travelBtn{position:absolute;top:8px;right:298px;z-index:23;pointer-events:auto;
+    background:rgba(0,0,0,.5);color:#7ec8ff;border:1px solid #305a7a;border-radius:6px;
+    font-size:14px;padding:4px 8px;cursor:pointer;opacity:.6;}
+  #travelBtn:hover{opacity:1;}
+  #travelBtn.hidden{display:none;}
+  #travelPanel{position:absolute;inset:0;z-index:35;display:flex;align-items:center;justify-content:center;
+    background:rgba(5,3,10,.92);pointer-events:auto;}
+  #travelBox{background:#1c1430;border:2px solid #4a3a66;border-radius:14px;padding:18px 16px;
+    width:min(440px,92%);max-height:84%;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.6);}
+  #travelBox h2{margin:0 0 4px;color:#7ec8ff;font-size:19px;text-align:center;}
+  #travelBox .tsub{color:#9a8fb0;font-size:12px;text-align:center;margin:0 0 12px;}
+  #travelList{overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:7px;}
+  .travelItem{background:#2a2046;color:#e8e0ff;border:1px solid #4a3a66;border-radius:8px;
+    padding:8px 6px;cursor:pointer;font-size:13px;text-align:center;line-height:1.35;}
+  .travelItem:hover{background:#3a2c5e;border-color:#7ec8ff;}
+  .travelItem.cur{border-color:#ffd34e;color:#ffd34e;}
+  .travelItem b{display:block;font-size:12px;}
+  #travelClose{margin-top:12px;background:#3a2c5e;color:#e8e0ff;border:none;border-radius:8px;
+    padding:9px;font-size:14px;cursor:pointer;}
+  /* イベント：右下の バッジ（経験値イベント） */
+  #eventBadge{position:absolute;bottom:12px;right:12px;z-index:24;pointer-events:none;
+    background:linear-gradient(135deg,#ff7b00,#ff2e88);color:#fff;border:2px solid #ffd34e;
+    border-radius:12px;font-size:15px;font-weight:bold;padding:7px 13px;
+    box-shadow:0 0 14px rgba(255,140,0,.6);text-shadow:0 1px 2px rgba(0,0,0,.5);
+    animation:evPulse 1.4s ease-in-out infinite;line-height:1.3;}
+  #eventBadge span{display:block;font-size:12px;font-weight:normal;opacity:.95;}
+  @keyframes evPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
+  /* イベント：上部の ステージ突入 / 復帰ボタン */
+  #eventStageBtn,#eventReturnBtn{position:absolute;top:8px;left:50%;transform:translateX(-50%);
+    z-index:24;pointer-events:auto;border:none;border-radius:9px;font-size:15px;font-weight:bold;
+    padding:7px 16px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.45);}
+  #eventStageBtn{background:linear-gradient(135deg,#b14dff,#ff4db0);color:#fff;
+    border:2px solid #ffd34e;animation:evPulse 1.4s ease-in-out infinite;}
+  #eventReturnBtn{background:rgba(0,0,0,.6);color:#ffd34e;border:1px solid #7a5a20;}
+  #eventStageBtn:hover,#eventReturnBtn:hover{filter:brightness(1.1);}
+  /* オンラインロビーパネル */
+  #onlinePanel{position:absolute;inset:0;z-index:36;display:flex;align-items:center;justify-content:center;
+    background:rgba(5,3,10,.92);pointer-events:auto;}
+  #onlineBox{background:#0c1810;border:2px solid #4caa4c;border-radius:14px;
+    width:min(94%,400px);max-height:92%;overflow:auto;padding:20px 22px;
+    box-shadow:0 0 30px rgba(76,170,76,.3);color:#d0f0d0;}
+  #onlineBox h2{margin:0 0 4px;color:#80e080;font-size:20px;}
+  #onlineBox .sub{color:#8aaa8a;font-size:12px;margin-bottom:14px;}
+  #onlineBox .sec{color:#ffd34e;font-size:12px;margin:12px 0 6px;border-bottom:1px solid #1a3a1a;padding-bottom:3px;}
+  .onBtn{width:100%;background:#1a3a1a;border:1px solid #4caa4c;color:#d0f0d0;
+    border-radius:8px;padding:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:6px;}
+  .onBtn:hover{background:#2a5a2a;}
+  #onlineCode{background:#0a200a;border:1px solid #4caa4c;border-radius:8px;color:#80e080;
+    font-size:32px;font-weight:900;letter-spacing:8px;text-align:center;padding:12px;
+    width:100%;box-sizing:border-box;margin:8px 0;}
+  #onlineJoinInput{background:#0a200a;border:1px solid #4caa4c;border-radius:8px;color:#80e080;
+    font-size:24px;font-weight:900;letter-spacing:6px;text-align:center;padding:8px;
+    width:100%;box-sizing:border-box;margin:6px 0;text-transform:uppercase;}
+  #onlineMsg{color:#8aaa8a;font-size:12px;min-height:18px;margin-top:8px;text-align:center;}
+  #onlineClose{width:100%;margin-top:12px;background:#1a3a1a;border:1px solid #4caa4c;color:#d0f0d0;
+    border-radius:8px;padding:10px;font-size:14px;font-weight:800;cursor:pointer;}
+  /* PvP ゲスト用 オーバーレイ */
+  #pvpWaitOverlay{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);
+    background:rgba(10,30,10,.92);border:1px solid #4caa4c;border-radius:10px;
+    padding:8px 18px;color:#80e080;font-size:13px;z-index:25;text-align:center;
+    pointer-events:none;white-space:nowrap;}
+  #pvpActionMenu{position:absolute;inset:0;z-index:26;display:flex;align-items:flex-end;
+    justify-content:center;padding-bottom:30px;pointer-events:auto;}
+  #pvpActionBox{background:rgba(10,30,10,.97);border:2px solid #4caa4c;border-radius:12px;
+    padding:12px 16px;width:min(94%,400px);}
+  #pvpActionBox .pvpTitle{color:#ffd34e;font-size:13px;font-weight:700;margin-bottom:8px;}
+  .pvpRow{display:flex;gap:8px;margin-bottom:8px;}
+  .pvpMenuBtn{flex:1;background:#1a3a1a;border:1px solid #4caa4c;color:#d0f0d0;
+    border-radius:8px;padding:9px 4px;font-size:13px;font-weight:700;cursor:pointer;}
+  .pvpMenuBtn:hover,.pvpMenuBtn:active{background:#2a5a2a;}
+  .pvpMenuBtn.sub{border-color:#2a5a2a;color:#6a9a6a;font-size:11px;}
+  #pvpSkillArea{display:none;margin-top:4px;}
+  #pvpSkillSelect{width:100%;background:#0a200a;border:1px solid #4caa4c;color:#80e080;
+    border-radius:6px;padding:7px;font-size:12px;margin-bottom:6px;}
+  #pvpSkillRow{display:flex;gap:8px;}
+  /* ランキング */
+  #rankingPanel{position:absolute;inset:0;z-index:35;display:flex;align-items:center;justify-content:center;
+    background:rgba(5,3,10,.88);pointer-events:auto;}
+  #rankingBox{background:#0f0820;border:2px solid #ffd34e;border-radius:14px;
+    width:min(94%,460px);max-height:92%;overflow:auto;padding:20px 22px;
+    box-shadow:0 0 40px rgba(255,211,78,.35);}
+  #rankingBox h2{margin:0 0 2px;color:#ffd34e;font-size:22px;text-align:center;}
+  #rankingBox .rsub{color:#9a8fb0;font-size:12px;text-align:center;margin:0 0 14px;}
+  #rankingBox .rsec{color:#ffd34e;font-size:12px;margin:14px 0 6px;
+    border-bottom:1px solid #3a2f4a;padding-bottom:3px;}
+  #rankName{width:100%;background:#1a1228;border:1px solid #5a4a6a;border-radius:8px;
+    color:#fff;padding:8px 10px;font-size:14px;box-sizing:border-box;}
+  #rankSubmit{margin-top:8px;width:100%;background:#ffd34e;color:#3a2a08;border:none;
+    border-radius:8px;padding:9px;font-size:14px;font-weight:800;cursor:pointer;}
+  #rankMsg{color:#8ec06c;font-size:12px;min-height:16px;margin-top:6px;text-align:center;}
+  .rankRow{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid #2a2040;align-items:center;font-size:13px;}
+  .rankNum{width:22px;text-align:right;color:#ffd34e;font-weight:700;flex-shrink:0;}
+  .rankName{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .rankLv{color:#7bc0f2;flex-shrink:0;}
+  .rankG{color:#ffd34e;font-size:11px;flex-shrink:0;}
+  .rankActs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;}
+  .rankActs button{border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:800;cursor:pointer;}
+  #rankContinue{background:#3a6a2a;color:#fff;}
+  #rankRestart{background:#6a2a2a;color:#fff;}
+</style>
+</head>
+<body>
+<div id="game">
+  <canvas id="cv" width="480" height="320"></canvas>
+
+  <!-- TITLE -->
+  <div id="titleScreen" class="overlay">
+    <div class="title-big">カピバラクエスト</div>
+    <div class="title-sub">〜 キメ顔の勇者 〜</div>
+    <div style="height:40px"></div>
+    <div class="title-sub blink" id="startHint">クリック / Enter で はじめる</div>
+    <div class="hint">PC: 移動=矢印/WASD・決定=Enter/Z・もどる=X　｜　スマホ/iPad: 画面の🎮コントローラー</div>
+    <div class="credit">v1.0 — made with capybara energy</div>
+  </div>
+
+  <!-- MESSAGE MODAL -->
+  <div id="modal" class="overlay hidden">
+    <div class="center-msg">
+      <h1 id="modalTitle"></h1>
+      <p id="modalBody"></p>
+      <button class="btn" id="modalBtn">つづける</button>
+    </div>
+  </div>
+
+  <!-- 管理者チートを ひらくボタン（コンソール認証まで 非表示） -->
+  <button id="cheatBtn" class="hidden">⚙ 管理者</button>
+
+  <!-- イベント UI -->
+  <button id="eventStageBtn" class="hidden">🎪 イベントステージへ</button>
+  <button id="eventReturnBtn" class="hidden">📖 ストーリーに戻る</button>
+  <div id="eventBadge" class="hidden"></div>
+
+  <!-- 管理者チートパネル -->
+  <div id="cheat" class="hidden">
+    <div id="cheatBox">
+      <h2>⚙ 管理者チート <span style="font-size:12px;color:#9a8fb0;">ｗｗ</span></h2>
+      <div class="sub">キー「 ` 」または「半角/全角」でも 開閉できます</div>
+
+      <div class="sec">▼ ステータス</div>
+      <div class="cheatGrid">
+        <button data-c="heal">HP/MP 全回復</button>
+        <button data-c="gold">ゴールド +1000</button>
+        <button data-c="lv">レベル +5</button>
+        <button data-c="god">最強ステータス</button>
+        <button data-c="items">どうぐ満タン(+99)</button>
+        <button data-c="atk">攻撃力 +10</button>
+        <button data-c="inv" id="cheatInv" class="wide">無敵モード: OFF</button>
+        <input id="cheatLvInput" type="number" min="1" max="999" placeholder="指定Lv（数値）">
+        <button data-c="setlv">指定Lvに 反映</button>
+      </div>
+
+      <div class="sec">▼ ワールド / バトル</div>
+      <div class="cheatGrid">
+        <button data-c="warp">ボスの門へワープ</button>
+        <button data-c="clear">マップの敵 全滅</button>
+        <button data-c="respawn">敵を 復活させる</button>
+        <button data-c="kill">この敵を 即たおす</button>
+      </div>
+
+      <div class="sec">▼ セーブデータ (Cookie)</div>
+      <div class="cheatGrid">
+        <button data-c="save">いま セーブ</button>
+        <button data-c="load">ロード</button>
+        <button data-c="wipe" class="danger wide">セーブを 削除する</button>
+      </div>
+
+      <div class="sec">▼ ランキング管理</div>
+      <div class="cheatGrid">
+        <button data-c="rankreset" class="danger wide">ランキングを 全リセット</button>
+      </div>
+
+      <div class="sec">▼ 自分の見た目</div>
+      <div class="cheatGrid">
+        <button data-c="skin-default">🐾 カピバラ（デフォルト）</button>
+        <button data-c="skin-nagaimo">🥔 長芋</button>
+        <button data-c="skin-mage">🧙 魔法使い</button>
+      </div>
+
+      <div class="sec">▼ プレイヤー遠隔操作（ランキング名で指定）</div>
+      <div class="cheatGrid">
+        <input id="pcName"  type="text"   class="wide evInput" maxlength="20" placeholder="ランキング登録名（そのまま入力）">
+        <input id="pcLevel" type="number" min="1" max="999" class="evInput" placeholder="レベル（任意）">
+        <input id="pcStage" type="number" min="1" max="45"  class="evInput" placeholder="ステージ 1〜45（任意）">
+        <select id="pcSkin" class="wide evInput">
+          <option value="">-- みため変更なし --</option>
+          <option value="default">🐾 カピバラ（デフォルト）</option>
+          <option value="nagaimo">🥔 長芋</option>
+          <option value="mage">🧙 魔法使い</option>
+        </select>
+        <button data-c="pc-apply" class="wide">📡 このプレイヤーに 反映する</button>
+        <button data-c="pc-clear" class="danger wide">指令を 取り消す</button>
+      </div>
+
+      <div class="sec">▼ 期間限定ステージ（全端末に反映）</div>
+      <div class="cheatGrid">
+        <input id="evName" type="text" class="wide evInput" maxlength="30" placeholder="ステージ名（任意）">
+        <input id="evBossName" type="text" class="wide evInput" maxlength="30" placeholder="ボスの名前（任意）">
+        <input id="evEnemyHp"   type="number" min="1" class="evInput" placeholder="敵HP">
+        <input id="evEnemyAtk"  type="number" min="0" class="evInput" placeholder="敵こうげき">
+        <input id="evEnemyDef"  type="number" min="0" class="evInput" placeholder="敵ぼうぎょ">
+        <input id="evEnemyExp"  type="number" min="0" class="evInput" placeholder="敵 もらえるXP">
+        <input id="evEnemyGold" type="number" min="0" class="evInput" placeholder="敵 ゴールド">
+        <input id="evBossHp"    type="number" min="1" class="evInput" placeholder="ボスHP">
+        <input id="evBossAtk"   type="number" min="0" class="evInput" placeholder="ボスこうげき">
+        <input id="evBossDef"   type="number" min="0" class="evInput" placeholder="ボスぼうぎょ">
+        <input id="evBossExp"   type="number" min="0" class="evInput" placeholder="ボス もらえるXP">
+        <input id="evBossGold"  type="number" min="0" class="evInput" placeholder="ボス ゴールド">
+        <input id="evMinutes"   type="number" min="1" class="evInput" placeholder="期間（分）">
+        <button data-c="ev-stage-start" class="wide">▶ 期間限定ステージを 反映する</button>
+        <button data-c="ev-stage-stop" class="danger wide">期間限定ステージを 終了</button>
+      </div>
+
+      <div class="sec">▼ 経験値イベント（全端末に反映）</div>
+      <div class="cheatGrid">
+        <input id="evXpMinutes" type="number" min="1" class="wide evInput" placeholder="イベント時間（分・既定60）">
+        <button data-c="ev-xp-2">経験値 ×2</button>
+        <button data-c="ev-xp-4">経験値 ×4</button>
+        <button data-c="ev-xp-8">経験値 ×8</button>
+        <button data-c="ev-xp-10">経験値 ×10</button>
+        <button data-c="ev-xp-20">経験値 ×20</button>
+        <button data-c="ev-xp-stop" class="danger wide">イベントを 止める</button>
+      </div>
+
+      <div id="cheatMsg"></div>
+      <button id="cheatClose">とじる</button>
+    </div>
+  </div>
+
+  <!-- ランキング -->
+  <button id="rankingBtn" title="世界ランキングを見る">🏆 ランキング</button>
+  <!-- オンライン対戦 -->
+  <button id="onlineBtn" title="オンライン1対1対戦">🌐 対戦</button>
+  <!-- ステージ移動 -->
+  <button id="travelBtn" class="hidden" title="クリアした ステージへ 行き来する">🗺 ステージ移動</button>
+  <div id="travelPanel" class="hidden">
+    <div id="travelBox">
+      <h2>🗺 ステージ移動</h2>
+      <p class="tsub">クリアした ステージへ 行ったり もどったり できるよ</p>
+      <div id="travelList"></div>
+      <button id="travelClose">とじる</button>
+    </div>
+  </div>
+  <div id="onlinePanel" class="hidden">
+    <div id="onlineBox">
+      <h2>🌐 オンライン対戦</h2>
+      <div class="sub">4文字コードで 友だちと 1対1で たたかおう！</div>
+      <div id="onlineLobby">
+        <div class="sec">▼ 部屋を作る（ホスト）</div>
+        <button class="onBtn" id="onlineCreateBtn">🏠 部屋を作る</button>
+        <div class="sec">▼ 部屋に入る（ゲスト）</div>
+        <input id="onlineJoinInput" maxlength="4" placeholder="XXXX">
+        <button class="onBtn" id="onlineJoinBtn">🚪 入る</button>
+      </div>
+      <div id="onlineWaiting" class="hidden">
+        <div class="sec">▼ 部屋コード（相手に 教えてね）</div>
+        <div id="onlineCode">----</div>
+        <div style="color:#8aaa8a;font-size:12px;text-align:center;margin-top:6px;">⏳ 相手が 入るのを まっています…</div>
+      </div>
+      <div id="onlineMsg"></div>
+      <button id="onlineClose">とじる</button>
+    </div>
+  </div>
+  <!-- PvP ゲスト用 UI -->
+  <div id="pvpWaitOverlay" class="hidden">⏳ 相手のターン…</div>
+  <div id="pvpActionMenu" class="hidden">
+    <div id="pvpActionBox">
+      <div class="pvpTitle">⚔️ あなたのターン！ 行動を えらんでください</div>
+      <div class="pvpRow">
+        <button class="pvpMenuBtn" id="pvpAtk">⚔️ たたかう</button>
+        <button class="pvpMenuBtn" id="pvpSkillBtn">✨ スキル</button>
+        <button class="pvpMenuBtn" id="pvpItem">🌿 やくそう</button>
+        <button class="pvpMenuBtn" id="pvpDef">🛡️ ぼうぎょ</button>
+      </div>
+      <div id="pvpSkillArea">
+        <select id="pvpSkillSelect"></select>
+        <div id="pvpSkillRow">
+          <button class="pvpMenuBtn" id="pvpSkillOk">つかう</button>
+          <button class="pvpMenuBtn sub" id="pvpSkillBack">もどる</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ランキングパネル -->
+  <div id="rankingPanel" class="hidden">
+    <div id="rankingBox">
+      <h2>🏆 世界ランキング</h2>
+      <p class="rsub" id="rankSub"></p>
+      <div class="rsec">▼ ランキングに のる</div>
+      <input id="rankName" type="text" maxlength="12" placeholder="なまえ（12文字まで）">
+      <button id="rankSubmit">登録する</button>
+      <div id="rankMsg"></div>
+      <div class="rsec">▼ トップ20</div>
+      <div id="rankList" style="color:#9a8fb0;font-size:12px;">読み込み中…</div>
+      <div class="rankActs">
+        <button id="rankContinue">とじる</button>
+        <button id="rankRestart" style="display:none;">🆕 はじめから</button>
+      </div>
+    </div>
+  </div>
+  <!-- 画面コントローラー（iPad/スマホ用） -->
+  <button id="padToggle" title="コントローラー表示/非表示">🎮</button>
+  <div id="controller" class="hidden">
+    <div id="pad" class="ctrl">
+      <button class="dbtn up"    data-k="ArrowUp">▲</button>
+      <button class="dbtn down"  data-k="ArrowDown">▼</button>
+      <button class="dbtn left"  data-k="ArrowLeft">◀</button>
+      <button class="dbtn right" data-k="ArrowRight">▶</button>
+      <div class="dcenter"></div>
+    </div>
+    <div id="abtns" class="ctrl">
+      <button class="abtn b" data-k="x">もどる</button>
+      <button class="abtn a" data-k="Enter">決定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =========================================================================
+   カピバラクエスト 〜キメ顔の勇者〜
+   単一ファイルのターン制RPG。Canvasで全部描画。
+   ========================================================================= */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+ctx.imageSmoothingEnabled = false;
+
+/* ---------- 入力 ---------- */
+const keys = {};
+const pressed = {}; // 単発入力
+window.addEventListener('keydown', e=>{
+  // 入力欄（ひきつぎコードの貼り付け等）に 入力中は ゲーム操作に しない
+  const tag = e.target && e.target.tagName;
+  if(tag==='TEXTAREA' || tag==='INPUT') return;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+  if(!keys[e.key]) pressed[e.key]=true;
+  keys[e.key]=true;
+});
+window.addEventListener('keyup', e=>{ keys[e.key]=false; });
+function consume(k){ if(pressed[k]){ pressed[k]=false; return true; } return false; }
+// 画面コントローラー（ポインタイベントで タッチ/マウス両対応）
+const controllerEl = document.getElementById('controller');
+function pressKey(k){ if(!keys[k]) pressed[k]=true; keys[k]=true; }
+function releaseKey(k){ keys[k]=false; }
+document.querySelectorAll('#controller [data-k]').forEach(b=>{
+  const k=b.dataset.k;
+  const press=e=>{ e.preventDefault(); pressKey(k); b.classList.add('on'); };
+  const release=e=>{ e.preventDefault(); releaseKey(k); b.classList.remove('on'); };
+  b.addEventListener('pointerdown', press);
+  b.addEventListener('pointerup', release);
+  b.addEventListener('pointercancel', release);
+  b.addEventListener('pointerleave', release);
+  b.addEventListener('contextmenu', e=>e.preventDefault());
+});
+// タッチ端末では 自動で 表示。トグルで 手動切替も可能
+const IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints>0);
+controllerEl.classList.toggle('hidden', !IS_TOUCH);
+document.getElementById('padToggle').addEventListener('click', ()=> controllerEl.classList.toggle('hidden'));
+// タッチ端末（iPad等）でイベントバッジをキャンバス内の右上に正確に配置
+function updateBadgePos(){
+  if(!IS_TOUCH) return;
+  const cv = document.getElementById('cv');
+  const game = document.getElementById('game');
+  const cvR = cv.getBoundingClientRect();
+  const gR  = game.getBoundingClientRect();
+  const badge = document.getElementById('eventBadge');
+  badge.style.top    = (cvR.top  - gR.top  + 12) + 'px';
+  badge.style.right  = (gR.right - cvR.right + 12) + 'px';
+  badge.style.bottom = 'auto';
+}
+window.addEventListener('resize', updateBadgePos);
+updateBadgePos();
+// 指が画面から はなれたとき 押しっぱなし防止
+window.addEventListener('pointerup', ()=>{
+  document.querySelectorAll('#controller [data-k]').forEach(b=>{ releaseKey(b.dataset.k); b.classList.remove('on'); });
+});
+
+/* ---------- 状態管理 ---------- */
+const STATE = { TITLE:'title', OVERWORLD:'over', BATTLE:'battle', MODAL:'modal', GAMEOVER:'over_dead', WIN:'win', PVP:'pvp' };
+let state = STATE.TITLE;
+const titleEl = document.getElementById('titleScreen');
+const modalEl = document.getElementById('modal');
+
+function showModal(title, body, cb){
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = body;
+  modalEl.classList.remove('hidden');
+  const btn = document.getElementById('modalBtn');
+  btn.onclick = ()=>{ modalEl.classList.add('hidden'); if(cb)cb(); };
+}
+
+/* ---------- プレイヤーデータ ---------- */
+const player = {
+  name:'カピ', lv:1, exp:0, expNext:8,
+  hp:30, maxhp:30, mp:8, maxmp:8,
+  atk:8, def:4, gold:0,
+  potions:3, // やくそう
+  ether:1,   // まりょく水
+  defending:false,
+  invincible:false, // チート用 無敵
+};
+function expToNext(lv){ return Math.floor(5 + 3.3 * Math.pow(lv, 1.5)); }
+
+/* ---------- マップ ---------- */
+// タイル: 0草 1木 2水 3道 4壁 5看板 6宝箱 7ボス門 8村人 9出口
+const TS = 32; // タイルサイズ
+const MAP_W = 20, MAP_H = 15;
+// 第1章だけは手作りの「里」マップ（チュートリアル）。2章以降は自動生成。
+const VILLAGE = [
+  "11111111111111111111",
+  "10000000000000000011",
+  "10333333000022200001",
+  "10300003000022200001",
+  "1030S033330000000061",
+  "10300003000300000001",
+  "10333333000300011111",
+  "10000000000300010008",
+  "12200000000333330001",
+  "12200000000000030001",
+  "10000001111000030001",
+  "10000001661000333301",
+  "10000001111000000301",
+  "10000000000000007301",
+  "11111111111111111111",
+];
+
+/* ---------- ステージ進行（全45章／41〜45は裏ステージ） ---------- */
+let stage = 1;
+let maxStage = 1; // これまでに 到達した いちばん 先の 章（ステージ移動の 解放範囲）
+const MAX_STAGE = 45;
+let stageTint='#8ec06c', stageTint2='#86b964';
+const BIOMES = [
+  {n:'みどりの森',   tint:'#8ec06c', boss:'魔王カワウソン',     bcol:'#7a4fa0', block:1},
+  {n:'こおりの谷',   tint:'#a9d6ea', boss:'氷帝フユウソン',     bcol:'#4a78b0', block:2},
+  {n:'ほのおの山',   tint:'#e0a05c', boss:'炎獣マグマウサ',     bcol:'#c0432a', block:4},
+  {n:'すなの遺跡',   tint:'#d8c48a', boss:'砂塵王スカラベ',     bcol:'#9a7a30', block:4},
+  {n:'よるの墓地',   tint:'#9a96b8', boss:'亡霊コウモリ卿',     bcol:'#4a3a66', block:1},
+  {n:'そらの神殿',   tint:'#b8d2e6', boss:'天空鳥フェニクス',   bcol:'#d07a30', block:2},
+  {n:'まきょうの沼', tint:'#8fae72', boss:'毒沼ヌシガエル',     bcol:'#5a7a30', block:2},
+  {n:'はがねの城',   tint:'#b6bcc6', boss:'機鋼兵ゴーレムX',    bcol:'#5a6470', block:4},
+  {n:'やみの深淵',   tint:'#8a7aa6', boss:'深淵カワウソン零',   bcol:'#3a2a56', block:4},
+  {n:'ひかりの果て', tint:'#ecdfa0', boss:'光輝神カピディウス', bcol:'#caa030', block:1},
+];
+const TIER = ['', '覚醒の ', '混沌の ', '終焉の '];
+// 40〜45章は「天の世界」。41〜45は 裏ステージ（けた違いに 強い）。
+const SKY_NAMES  = ['天の世界','天の世界 雲の海','天の世界 星の路','天の世界 月の宮','天の世界 陽の頂','天の世界 神座'];
+const SKY_BOSSES = ['天帝カピロス','雲海の主リュウジン','星詠みアストレア','月読カグヤ','陽光神アマテル','長芋族のリーダー'];
+const SKY_TINT='#bcd0f5';
+function biomeOf(s){ return BIOMES[(s-1)%BIOMES.length]; }
+function tierOf(s){ return Math.floor((s-1)/BIOMES.length); }
+function stageName(s){ if(s>=40) return SKY_NAMES[Math.min(s-40, SKY_NAMES.length-1)]; return TIER[tierOf(s)] + biomeOf(s).n; }
+function bossName(s){ if(s>=40) return SKY_BOSSES[Math.min(s-40, SKY_BOSSES.length-1)]; return TIER[tierOf(s)] + biomeOf(s).boss; }
+function applyBiome(){
+  const b=biomeOf(stage);
+  stageTint = (stage>=40) ? SKY_TINT : b.tint;
+  const n=parseInt(stageTint.slice(1),16);
+  const r=Math.max(0,((n>>16)&255)-12), g=Math.max(0,((n>>8)&255)-12), bl=Math.max(0,(n&255)-12);
+  stageTint2='#'+((1<<24)+(r<<16)+(g<<8)+bl).toString(16).slice(1);
+}
+
+let startX=4, startY=4, gateX=16, gateY=13;
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=rnd(0,i); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function parseLayout(layout){
+  const m=[];
+  for(let y=0;y<layout.length;y++){
+    const row=[];
+    for(let x=0;x<layout[y].length;x++){
+      const c=layout[y][x];
+      if(c==='S'){ startX=x; startY=y; row.push(3); }
+      else { const v=parseInt(c); row.push(isNaN(v)?0:v); if(v===7){ gateX=x; gateY=y; } }
+    }
+    m.push(row);
+  }
+  return m;
+}
+// 自動生成マップ（ドランカードウォークで連結を保証 → 迷路っぽく難しめ）
+function generateMap(){
+  const block = biomeOf(stage).block;
+  const m=[];
+  for(let y=0;y<MAP_H;y++){ const row=[]; for(let x=0;x<MAP_W;x++){
+    row.push((x===0||y===0||x===MAP_W-1||y===MAP_H-1)? block : block);
+  } m.push(row); }
+  startX=2; startY=2;
+  let cx=startX, cy=startY; m[cy][cx]=0;
+  const carved=[[cx,cy]];
+  const target=Math.floor(MAP_W*MAP_H*0.46); // ひかえめ＝通路が細く 難しい
+  let steps=0;
+  while(carved.length<target && steps<6000){
+    steps++;
+    const d=[[0,-1],[0,1],[-1,0],[1,0]][rnd(0,3)];
+    const nx=cx+d[0], ny=cy+d[1];
+    if(nx<1||ny<1||nx>MAP_W-2||ny>MAP_H-2) continue;
+    cx=nx; cy=ny;
+    if(m[cy][cx]!==0){ m[cy][cx]=0; carved.push([cx,cy]); }
+  }
+  // スタート周辺は 安全な道(3)
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    const x=startX+dx,y=startY+dy;
+    if(x>0&&y>0&&x<MAP_W-1&&y<MAP_H-1&&m[y][x]===0) m[y][x]=3;
+  }
+  // ボス門：Sから最遠の carved
+  let far=carved[0], fd=-1;
+  for(const [x,y] of carved){ const dd=Math.abs(x-startX)+Math.abs(y-startY); if(dd>fd){ fd=dd; far=[x,y]; } }
+  gateX=far[0]; gateY=far[1]; m[gateY][gateX]=7;
+  // 宝箱2つ：そこそこ遠い carved から
+  const cand=carved.filter(([x,y])=> !(x===startX&&y===startY) && !(x===gateX&&y===gateY) && (Math.abs(x-startX)+Math.abs(y-startY))>4);
+  shuffle(cand);
+  for(let i=0;i<2 && i<cand.length;i++){ const [x,y]=cand[i]; m[y][x]=6; }
+  return m;
+}
+function buildMap(){ return (stage===1)? parseLayout(VILLAGE) : generateMap(); }
+applyBiome();
+let map = buildMap();
+const hero = { x:startX, y:startY, px:startX*TS, py:startY*TS, dir:'down', moving:false, frame:0 };
+let bossDefeated=false, npcTalked=false;
+
+// 章クリアごとに 新しいマップを 用意して 敵を 配置
+function resetMapForStage(){
+  applyBiome();
+  map = buildMap();
+  hero.x=startX; hero.y=startY; hero.px=startX*TS; hero.py=startY*TS; hero.moving=false;
+  bossDefeated=false;
+  story.cave=false; story.bossIntro=false;
+  spawnMapEnemies();
+}
+// 敵ステータスを 章に応じて 強化（23章から 一気に きびしくなる）
+function scaleEnemy(e){
+  // 1〜34章：もとの バランスを キープ
+  let hpM = 1+(stage-1)*0.38, atkM=1+(stage-1)*0.22, defM=1+(stage-1)*0.18;
+  let expM = 1+(stage-1)*0.70, goldM = 1+(stage-1)*0.5;
+  if(stage>=23){
+    const k=stage-22;
+    hpM  *= Math.pow(1.09,k);
+    atkM *= Math.pow(1.07,k);
+    defM *= Math.pow(1.03,k);
+    expM *= Math.pow(1.18,k);
+    goldM*= Math.pow(1.12,k);
+  }
+  if(stage>=35){
+    const k=stage-34;
+    hpM  *= Math.pow(1.03,k);
+    atkM *= Math.pow(1.02,k);
+    defM *= Math.pow(1.01,k);
+    expM *= Math.pow(1.05,k);
+    goldM*= Math.pow(1.03,k);
+  }
+  if(stage>=41){
+    // 41〜45章＝裏ステージ「天の世界」
+    const k=stage-40;
+    hpM  *= Math.pow(1.12,k);
+    atkM *= Math.pow(1.07,k);
+    defM *= Math.pow(1.04,k);
+    expM *= Math.pow(1.25,k);
+    goldM*= Math.pow(1.15,k);
+  }
+  e.hp=Math.round(e.hp*hpM); e.maxhp=e.hp;
+  e.atk=Math.round(e.atk*atkM); e.def=Math.round(e.def*defM);
+  e.exp=Math.round(e.exp*expM); e.gold=Math.round(e.gold*goldM);
+  return e;
+}
+function getStageBoss(){
+  const b=biomeOf(stage);
+  return {n:bossName(stage), hp:85, atk:13, def:6, exp:120, gold:200, col:(stage>=40?'#cdb38a':b.bcol), face:'( ▼皿▼)', boss:true, img:(stage>=45?'nagaimo':null)};
+}
+
+/* ---------- マップ上を歩き回る敵（時間経過で 再湧き） ---------- */
+let mapEnemies = [];
+let respawnTimer = 240;
+let battleSource = null;
+function enemyCap(){ return 6 + Math.min(5, Math.floor(stage/4)); }
+function aliveCount(){ return mapEnemies.reduce((n,e)=>n+(e.alive?1:0),0); }
+function pickEnemyType(){
+  let pool;
+  if(stage<=1) pool=[0,0,1];
+  else if(stage<=3) pool=[0,1,1,2];
+  else pool=[1,1,2,2];
+  return pool[rnd(0,pool.length-1)];
+}
+function spawnOneEnemy(initial){
+  const spots=[];
+  for(let y=1;y<MAP_H-1;y++) for(let x=1;x<MAP_W-1;x++){
+    if(map[y][x]!==0) continue;
+    if(initial){ if(Math.abs(x-startX)+Math.abs(y-startY)<=3) continue; }
+    else { if(Math.abs(x-hero.x)+Math.abs(y-hero.y)<=4) continue; }
+    if(mapEnemies.some(e=>e.alive&&e.x===x&&e.y===y)) continue;
+    spots.push({x,y});
+  }
+  if(!spots.length) return false;
+  const s=spots[rnd(0,spots.length-1)];
+  mapEnemies.push({ x:s.x, y:s.y, px:s.x*TS, py:s.y*TS, type:pickEnemyType(),
+    dir:'down', moving:false, frame:0, cool:rnd(20,100), stun:0, alive:true, spawnFx:18 });
+  return true;
+}
+function spawnMapEnemies(){
+  mapEnemies=[];
+  const n=enemyCap();
+  for(let i=0;i<n;i++) spawnOneEnemy(true);
+  respawnTimer = 200;
+}
+// 敵が へると 時間経過で ランダムな場所に 1体ずつ 湧く
+function updateRespawn(){
+  // 死亡個体は そうじ
+  if(mapEnemies.some(e=>!e.alive)) mapEnemies = mapEnemies.filter(e=>e.alive);
+  if(aliveCount()>=enemyCap()){ respawnTimer=180; return; }
+  respawnTimer--;
+  if(respawnTimer<=0){
+    spawnOneEnemy(false);
+    respawnTimer = 150 + rnd(0,150); // 約2.5〜5秒で 次の1体
+  }
+}
+
+/* ---------- 敵データ ---------- */
+const ENEMIES = [
+  {n:'スライムねこ', hp:14, atk:6, def:2, exp:5, gold:4, col:'#6fcf97', face:'(=^x^=)'},
+  {n:'いたずらカラス', hp:18, atk:9, def:3, exp:8, gold:6, col:'#5b6472', face:'<vov>'},
+  {n:'マッドゴーレム', hp:30, atk:12, def:6, exp:16, gold:14, col:'#9c6b3f', face:'[ -_- ]'},
+];
+
+/* ---------- バトル状態 ---------- */
+let battle = null;
+function startBattle(enemyTpl, source, raw){
+  battleSource = source || null;
+  const e = JSON.parse(JSON.stringify(enemyTpl));
+  if(raw){ e.maxhp = e.hp; } else { scaleEnemy(e); }
+  battle = {
+    enemy:e, menu:0, sub:null, subIdx:0,
+    log:['　'], turn:'player', anim:0, shake:0, flash:0, over:false,
+    playerHurt:0, enemyHurt:0, msgQ:[],
+    inputLockUntil: Date.now()+700, // 連打で メッセージを 飛ばさない / 同じ技を 繰り返さない
+  };
+  state = STATE.BATTLE;
+  pushLog(`${e.n} が あらわれた！`);
+}
+function pushLog(t){ battle.log.push(t); if(battle.log.length>3) battle.log.shift(); }
+
+/* ====================================================================
+   バトルロジック
+   ==================================================================== */
+const PMENU = ['たたかう','スキル','どうぐ','ぼうぎょ','にげる'];
+// 確定/決定キーの 押下バッファを 捨てる（連打が 次に持ち越されないように）
+function flushBattleKeys(all){
+  pressed['Enter']=pressed['z']=pressed['Z']=pressed[' ']=pressed['x']=pressed['X']=false;
+  if(all){ pressed['ArrowUp']=pressed['ArrowDown']=pressed['ArrowLeft']=pressed['ArrowRight']=pressed['w']=pressed['s']=false; }
+}
+function lockBattle(ms){ battle.inputLockUntil = Date.now()+(ms||600); }
+function battleInput(){
+  // アニメ中・敵ターン・決着後は すべての 入力を 捨てる（連打を 次へ 持ち越さない）
+  if(battle.over || battle.turn!=='player' || battle.anim>0){ flushBattleKeys(true); return; }
+  const canAct = Date.now() >= battle.inputLockUntil; // 直前の決定から 0.6秒は 確定できない
+  if(!canAct) flushBattleKeys(false);                 // ロック中の 決定押下は 無効化（カーソル移動は可）
+
+  if(battle.sub===null){
+    if(consume('ArrowUp')||consume('w')) battle.menu=(battle.menu+PMENU.length-1)%PMENU.length;
+    if(consume('ArrowDown')||consume('s')) battle.menu=(battle.menu+1)%PMENU.length;
+    if(canAct && (consume('Enter')||consume('z')||consume('Z')||consume(' '))){
+      lockBattle(600);
+      const m=PMENU[battle.menu];
+      if(m==='たたかう') playerAttack();
+      else if(m==='ぼうぎょ'){ player.defending=true; pushLog(`${player.name} は みをまもっている`); endPlayerTurn(); }
+      else if(m==='にげる') tryRun();
+      else if(m==='スキル'){ battle.sub='skill'; battle.subIdx=0; }
+      else if(m==='どうぐ'){ battle.sub='item'; battle.subIdx=0; }
+    }
+  } else {
+    const list = battle.sub==='skill' ? availableSkills() : ITEMS;
+    if(consume('ArrowUp')||consume('w')) battle.subIdx=(battle.subIdx+list.length-1)%list.length;
+    if(consume('ArrowDown')||consume('s')) battle.subIdx=(battle.subIdx+1)%list.length;
+    if(canAct && (consume('x')||consume('X'))){ lockBattle(300); battle.sub=null; }
+    else if(canAct && (consume('Enter')||consume('z')||consume('Z')||consume(' '))){
+      lockBattle(600);
+      list[battle.subIdx].use();
+    }
+  }
+}
+// ---- スキル（レベルが上がるほど 増える） ----
+function spend(n){ if(player.mp<n){ pushLog('MPが たりない！'); return false; } player.mp-=n; return true; }
+function skMagic(mult, msg, big){
+  const e=battle.enemy;
+  const dmg=Math.max(1, Math.floor(player.atk*mult) - Math.floor(e.def*0.4) + rnd(0,3));
+  dealToEnemy(dmg, msg, big);
+}
+function skHeal(amount){
+  player.hp=Math.min(player.maxhp, player.hp+amount);
+  pushLog(`${player.name} は ${amount} かいふくした`);
+  battle.playerHurt=8; endPlayerTurn();
+}
+function atkSkill(lv,nm,mp,mult,big){ return {lv,mp,mult,isHeal:false,big,name:`${nm} (MP${mp})`,use(){ if(!spend(mp))return; battle.sub=null; skMagic(mult, nm+'！', big); }}; }
+function healSkill(lv,nm,mp,lo,hi){ return {lv,mp,mult:0,isHeal:true,healLo:lo,healHi:hi,name:`${nm} (MP${mp})`,use(){ if(!spend(mp))return; battle.sub=null; skHeal(lo+rnd(0,hi-lo)); }}; }
+const ALL_SKILLS = [
+  atkSkill(1,'メガかみつき',3,1.8,false),
+  healSkill(4,'いやしのカピ',4,18,24),
+  atkSkill(8,'キメ顔ビーム',5,2.6,true),
+  atkSkill(13,'ダブルバイト',6,2.4,false),
+  atkSkill(19,'カピ・ストーム',9,3.3,true),
+  healSkill(25,'だいかいふく',8,55,80),
+  atkSkill(32,'しんキメ顔ビーム',14,4.3,true),
+  {lv:40,mp:12,mult:3.0,isHeal:false,big:true,name:'ゆずあらし (MP12)',use(){ if(!spend(12))return; battle.sub=null;
+     player.hp=Math.min(player.maxhp,player.hp+30); pushLog('ゆずの かおりで かいふく！'); skMagic(3.0,'ゆずあらし！',true); }},
+  atkSkill(50,'メテオカピバラ',20,5.6,true),
+  atkSkill(60,'ぜんのうキメ顔',30,7.8,true),
+];
+function availableSkills(){ return ALL_SKILLS.filter(s=>player.lv>=s.lv); }
+// 新しく おぼえる スキルの 名前（レベルアップ時の表示用）
+function skillsLearnedAt(lv){ return ALL_SKILLS.filter(s=>s.lv===lv).map(s=>s.name.replace(/ \(MP\d+\)/,'')); }
+const ITEMS = [
+  {name:()=>`やくそう (${player.potions})`, use:()=>{
+     if(player.potions<=0){ pushLog('やくそうが ない！'); return; }
+     player.potions--; battle.sub=null;
+     const h=20; player.hp=Math.min(player.maxhp,player.hp+h);
+     pushLog(`やくそうで ${h} かいふく`); endPlayerTurn();
+  }},
+  {name:()=>`まりょく水 (${player.ether})`, use:()=>{
+     if(player.ether<=0){ pushLog('まりょく水が ない！'); return; }
+     player.ether--; battle.sub=null;
+     const h=10; player.mp=Math.min(player.maxmp,player.mp+h);
+     pushLog(`MPが ${h} かいふく`); endPlayerTurn();
+  }},
+];
+// ITEMS の name は関数なので描画側で解決
+function playerAttack(){
+  const crit = Math.random()<0.18;
+  let dmg = Math.max(1, player.atk - battle.enemy.def + rnd(-1,3));
+  if(crit) dmg = Math.floor(dmg*1.9);
+  dealToEnemy(dmg, crit?'かいしんの いちげき！':`${player.name}の こうげき！`);
+}
+function dealToEnemy(dmg, msg, big){
+  pushLog(msg);
+  if(pvpMode && pvpRole==='host' && battle.enemy.guestDefending){
+    dmg=Math.max(1, Math.floor(dmg/2)); battle.enemy.guestDefending=false;
+  }
+  battle.enemy.hp -= dmg;
+  battle.enemyHurt = big?22:14; battle.flash = big?10:6; battle.shake=8;
+  battle.msgQ.push(`${battle.enemy.n}に ${dmg} ダメージ！`);
+  battle.anim = 28;
+  setTimeout(()=>{
+    if(battle && battle.msgQ.length){ pushLog(battle.msgQ.shift()); }
+    if(battle && battle.enemy.hp<=0){ winBattle(); }
+    else { if(pvpMode && pvpRole==='host') pvpSyncToGuest(); endPlayerTurn(); }
+  }, 380);
+}
+function endPlayerTurn(){
+  if(battle.over) return;
+  battle.turn='enemy';
+  battle.anim = Math.max(battle.anim, 20);
+  setTimeout(enemyTurn, 620);
+}
+function enemyTurn(){
+  if(!battle || battle.over) return;
+  if(pvpMode && pvpRole==='host'){ pvpHostEnemyTurn(); return; }
+  const e=battle.enemy;
+  // ボスはたまに強攻撃
+  let dmg = Math.max(1, e.atk - player.def + rnd(-2,2));
+  let msg = `${e.n}の こうげき！`;
+  if(e.boss && Math.random()<0.3){ dmg=Math.floor(dmg*1.7); msg=`${e.n}の あんこくブレス！`; }
+  if(player.defending){ dmg=Math.floor(dmg/2); }
+  if(player.invincible){ dmg=0; }
+  player.hp -= dmg;
+  battle.playerHurt=16; battle.shake=10;
+  pushLog(msg);
+  battle.msgQ.push(`${player.name}は ${dmg} ダメージ！`);
+  battle.anim=24;
+  setTimeout(()=>{
+    if(!battle) return;
+    if(battle.msgQ.length) pushLog(battle.msgQ.shift());
+    player.defending=false;
+    if(player.hp<=0){ loseBattle(); }
+    else { battle.turn='player'; }
+  }, 420);
+}
+function tryRun(){
+  if(battle.enemy.boss){ pushLog('魔王からは にげられない！'); endPlayerTurn(); return; }
+  if(Math.random()<0.6){
+    pushLog('うまく にげきれた！');
+    battle.over=true;
+    // 接触した敵をしばらく動けなくして再接触を防ぐ
+    if(battleSource){ battleSource.stun=120; battleSource=null; }
+    setTimeout(()=>{ battle=null; state=STATE.OVERWORLD; }, 700);
+  } else { pushLog('にげられなかった！'); endPlayerTurn(); }
+}
+function winBattle(){
+  battle.over=true;
+  if(pvpMode && pvpRole==='host'){ pvpHostWin(); return; }
+  const e=battle.enemy;
+  if(battleSource){ battleSource.alive=false; battleSource=null; }
+  const xpMult = currentXpMult();
+  const gainExp = Math.round(e.exp * xpMult);
+  player.exp += gainExp; player.gold += e.gold;
+  let levelMsg='';
+  while(player.exp >= player.expNext){
+    player.exp -= player.expNext; player.lv++;
+    player.maxhp+=4; player.maxmp+=2; player.atk+=2; player.def+=1;
+    player.hp=player.maxhp; player.mp=player.maxmp;
+    player.expNext = expToNext(player.lv);
+    levelMsg += `<br>レベル ${player.lv} に あがった！ つよくなった！`;
+    const learned = skillsLearnedAt(player.lv);
+    if(learned.length) levelMsg += `<br>✨ 新スキル「<b>${learned.join('・')}</b>」を おぼえた！`;
+  }
+  if(!e.boss && !eventMode){ killCount++; saveGame(); }
+  const expLine = (xpMult>1)
+    ? `けいけんち ${gainExp}（×${xpMult}イベント中！） / ${e.gold}G を てにいれた！`
+    : `けいけんち ${gainExp} / ${e.gold}G を てにいれた！`;
+  setTimeout(()=>{
+    if(e.boss){
+      bossDefeated=true;
+      battle=null;
+      if(eventMode){
+        eventCleared=true;
+        state=STATE.MODAL;
+        showModal('🎪 イベントステージ クリア！',
+          `<b>${e.n}</b> を たおした！<br>${expLine}${levelMsg}<br><br>「📖 ストーリーに戻る」で もとの ぼうけんに もどれるよ。`,
+          ()=>{ state=STATE.OVERWORLD; });
+        return;
+      }
+      if(stage<maxStage){
+        // 再挑戦：すでに クリア済みの 章。長い物語は 出さず、その場で クリア表示
+        state=STATE.MODAL;
+        showModal('クリア！',
+          `<b>${e.n}</b>を また たおした！<br>${expLine}${levelMsg}<br><br>「🗺 ステージ移動」で 行きたい 章へ いけるよ。`,
+          ()=>{ battle=null; state=STATE.OVERWORLD; });
+      } else if(stage>=MAX_STAGE){
+        showStory(FINAL_ENDING, ()=>{ winGame(); });        // 第40章クリア＝真エンド
+      } else if(stage===1){
+        showStory(EPILOGUE.concat(STAGE1_TWIST), ()=>{ advanceStage(); }); // 1章は和解話＋次章へのヒキ
+      } else {
+        showStory(stageClearStory(), ()=>{ advanceStage(); });
+      }
+    } else {
+      state=STATE.MODAL;
+      showModal('勝利！',
+        `<b>${e.n}</b> を たおした！<br>${expLine}${levelMsg}`,
+        ()=>{ battle=null; state=STATE.OVERWORLD; if(!eventMode) maybeStoryAfterBattle(); });
+    }
+  }, 600);
+}
+function loseBattle(){
+  battle.over=true;
+  if(pvpMode && pvpRole==='host'){ pvpHostLose(); return; }
+  setTimeout(()=>{
+    state=STATE.MODAL;
+    showModal('やられてしまった…',
+      `${player.name}は ちからつきた…<br>でも キメ顔は くずさなかった。<br><br>HP/MP 全回復で その場から さいスタート！`,
+      ()=>{
+        player.hp=player.maxhp; player.mp=player.maxmp;
+        if(battleSource){ battleSource.stun=140; battleSource=null; }
+        battle=null; state=STATE.OVERWORLD;
+      });
+  }, 700);
+}
+
+/* ====================================================================
+   オーバーワールド
+   ==================================================================== */
+let stepCount=0, encounterCloud=0;
+function overworldUpdate(){
+  updateMapEnemies();
+  updateRespawn();
+  if(checkEnemyContact()) return;
+  if(hero.moving){
+    const tx=hero.x*TS, ty=hero.y*TS;
+    const sp=4;
+    if(hero.px<tx) hero.px=Math.min(tx,hero.px+sp);
+    if(hero.px>tx) hero.px=Math.max(tx,hero.px-sp);
+    if(hero.py<ty) hero.py=Math.min(ty,hero.py+sp);
+    if(hero.py>ty) hero.py=Math.max(ty,hero.py-sp);
+    hero.frame=(hero.frame+1)%20;
+    if(hero.px===tx && hero.py===ty){
+      hero.moving=false;
+      onStep();
+      checkEnemyContact();
+    }
+    return;
+  }
+  let nx=hero.x, ny=hero.y, moved=false;
+  if(keys['ArrowUp']||keys['w']){ ny--; hero.dir='up'; moved=true; }
+  else if(keys['ArrowDown']||keys['s']){ ny++; hero.dir='down'; moved=true; }
+  else if(keys['ArrowLeft']||keys['a']){ nx--; hero.dir='left'; moved=true; }
+  else if(keys['ArrowRight']||keys['d']){ nx++; hero.dir='right'; moved=true; }
+
+  // 決定キーで前方を調べる
+  if(consume('Enter')||consume('z')||consume('Z')){ interact(); return; }
+
+  if(moved && canWalk(nx,ny)){
+    // 特殊タイルチェック（侵入前）
+    const t = map[ny][nx];
+    if(t===6){ openChest(nx,ny); return; }
+    if(t===7){ approachBoss(); return; }
+    if(t===8){ /* NPCには重ならない、interactで会話 */ }
+    hero.x=nx; hero.y=ny; hero.moving=true;
+  }
+}
+function canWalk(x,y){
+  if(x<0||y<0||x>=MAP_W||y>=MAP_H) return false;
+  const t=map[y][x];
+  return !(t===1||t===2||t===4||t===8); // 木・水・壁・NPCは通れない
+}
+function interact(){
+  // 向いている先のタイル
+  let fx=hero.x, fy=hero.y;
+  if(hero.dir==='up')fy--; if(hero.dir==='down')fy++;
+  if(hero.dir==='left')fx--; if(hero.dir==='right')fx++;
+  if(fy<0||fx<0||fy>=MAP_H||fx>=MAP_W) return;
+  const t=map[fy][fx];
+  if(t===8){ talkNPC(); }
+  else if(t===5){ showSign(); }
+  else if(t===6){ openChest(fx,fy); }
+  else if(t===7){ approachBoss(); }
+}
+function showSign(){
+  showStory([
+    {t:'📜 たてふだ', b:'ようこそ カピバラの里へ。<br>この たては、いにしえより ゆずの おゆと みかんに めぐまれた、ぬくもりの たに。'},
+    {t:'📜 たてふだ', b:'いま、きたの どうくつに <b>魔王カワウソン</b>が めざめ、たにの ぬくもりを こおらせている。<br>草むらには こおりに くるった まものが でる。きをつけて すすめ。'},
+    {t:'📜 たてふだ', b:'★ あそびかた ★<br>・草を あるくと まものが ちかづく（あたまの「!」が めじるし）<br>・まものに ふれると バトル<br>・<b>決定/Z</b>で 里長や 看板を しらべる<br>・宝箱を あけて つよくなろう<br>・じゅうぶん レベルを あげたら、きたの 門へ！'},
+  ], ()=>{ state=STATE.OVERWORLD; });
+}
+function talkNPC(){
+  if(!npcTalked){
+    npcTalked=true;
+    player.potions+=2; player.ether+=1;
+    showStory([
+      {t:'🧑‍🌾 里長のおじいさん', b:'おお、勇者カピよ！ よくぞ きた。<br>わしの ふるい ともが…… いや、それは また あとで はなそう。'},
+      {t:'🧑‍🌾 里長のおじいさん', b:'たびの したくに、これを もっていけ。<br><b>やくそう×2・まりょく水×1</b> を もらった！'},
+      {t:'🧑‍🌾 里長のおじいさん', b:'みなみの 宝箱には、たいせつな ものが ねむっておる。わすれずにな。<br>魔王カワウソンは、きたの くらい 門の おくじゃ。<br><b>Lv3いじょう</b>に なってから いどむのが よいぞ。'},
+      {t:'🧑‍🌾 里長のおじいさん', b:'……カピよ。<br>もし むこうで、かなしそうな めを した やつに あっても——<br>どうか、いきなり たたかおうと せんでくれ。たのむ。'},
+    ], ()=>{ state=STATE.OVERWORLD; });
+  } else {
+    const lines = story.vision
+      ? ['Lv'+player.lv+'まで つよくなったか。<br>……おまえも、なにか「見た」ようじゃな。<br>そう。カワウソンは、むかし わしの しんゆう だった。']
+      : ['Lv'+player.lv+' になったか。たのもしいぞ。<br>キメ顔を たやすなよ、勇者よ。'];
+    showStory(lines.map(b=>({t:'🧑‍🌾 里長のおじいさん', b})), ()=>{ state=STATE.OVERWORLD; });
+  }
+}
+function openChest(x,y){
+  map[y][x]=3; // 開けたら道に（再オープン不可）
+  const g = 20 + stage*10 + rnd(0,20);
+  const r = rnd(0,2);
+  let msg, fruit=false;
+  if(r===0){ player.atk+=2; player.maxhp+=8; player.hp+=8; player.gold+=g;
+    msg=`<b>光の木の実</b>！ ATK+2 / 最大HP+8 ・ ${g}G`; fruit=!story.fruit; }
+  else if(r===1){ player.def+=2; player.maxmp+=4; player.mp+=4; player.gold+=g;
+    msg=`<b>まもりの実</b>！ DEF+2 / 最大MP+4 ・ ${g}G`; }
+  else { player.potions+=2; player.ether+=1; player.gold+=g;
+    msg=`やくそう×2・まりょく水×1 ・ ${g}G`; }
+  state=STATE.MODAL;
+  showModal('✨ 宝箱を あけた！', msg, ()=>{
+    if(fruit){ story.fruit=true; showStory(STORY_FRUIT, ()=>{ state=STATE.OVERWORLD; }); }
+    else state=STATE.OVERWORLD;
+  });
+  saveGame();
+}
+function approachBoss(){
+  state=STATE.MODAL;
+  const rec = 3 + (stage-1)*2; // 章ごとの 推奨レベル
+  if(player.lv<rec){
+    showModal('🚪 ボスの門',
+      `おそろしい きはいが する…（現在 Lv${player.lv}）<br>まだ よわすぎる かもしれない。<br><b>Lv${rec}いじょう</b>で いどむのを おすすめする。<br><br>それでも いどむ？`,
+      ()=>{ bossConfirm(); });
+  } else {
+    bossConfirm();
+  }
+}
+function bossConfirm(){
+  // 二択を簡易モーダルで
+  document.getElementById('modalTitle').textContent='🚪 ボスの門';
+  const bn = eventMode ? eventBossTpl.n : bossName(stage);
+  document.getElementById('modalBody').innerHTML=`門の おくから 殺気が…<br><b>${bn}</b>に いどむ？`;
+  modalEl.classList.remove('hidden');
+  const btn=document.getElementById('modalBtn');
+  btn.textContent='いどむ！';
+  btn.onclick=()=>{ modalEl.classList.add('hidden'); btn.textContent='つづける';
+    window.removeEventListener('keydown',cancel);
+    startBossFight(); };
+  // X でキャンセル
+  const cancel=(e)=>{ if(e.key==='x'||e.key==='X'){ modalEl.classList.add('hidden'); btn.textContent='つづける'; state=STATE.OVERWORLD; window.removeEventListener('keydown',cancel);} };
+  window.addEventListener('keydown',cancel);
+  state=STATE.MODAL;
+}
+function onStep(){
+  stepCount++;
+  // ランダムエンカウントは廃止。バトルはマップ上の敵に接触したときだけ。
+  // ボスの門に 近づいたとき 一度だけ
+  if(!story.cave && Math.abs(hero.x-gateX)+Math.abs(hero.y-gateY)<=3){
+    story.cave=true; hero.moving=false;
+    showStory(STORY_CAVE, ()=>{ state=STATE.OVERWORLD; });
+  }
+}
+
+// マップ敵の徘徊AI
+function tileFree(x,y, self){
+  if(!canWalk(x,y)) return false;
+  if(x===hero.x && y===hero.y) return false;
+  for(const e of mapEnemies){ if(e!==self && e.alive && e.x===x && e.y===y) return false; }
+  return true;
+}
+function updateMapEnemies(){
+  for(const e of mapEnemies){
+    if(!e.alive) continue;
+    if(e.stun>0){ e.stun--; continue; }
+    if(e.moving){
+      const tx=e.x*TS, ty=e.y*TS, sp=2;
+      if(e.px<tx) e.px=Math.min(tx,e.px+sp);
+      if(e.px>tx) e.px=Math.max(tx,e.px-sp);
+      if(e.py<ty) e.py=Math.min(ty,e.py+sp);
+      if(e.py>ty) e.py=Math.max(ty,e.py-sp);
+      e.frame=(e.frame+1)%20;
+      if(e.px===tx && e.py===ty){ e.moving=false; e.cool=rnd(30,110); }
+      continue;
+    }
+    if(e.cool>0){ e.cool--; continue; }
+    // ランダムな方向へ1マス（草・道のみ歩く＝木や水を避ける）
+    const dirs=[[0,-1,'up'],[0,1,'down'],[-1,0,'left'],[1,0,'right']];
+    const d=dirs[rnd(0,3)];
+    const nx=e.x+d[0], ny=e.y+d[1];
+    e.dir=d[2];
+    const t = (ny>=0&&nx>=0&&ny<MAP_H&&nx<MAP_W)? map[ny][nx] : -1;
+    if((t===0||t===3) && tileFree(nx,ny,e)){
+      e.x=nx; e.y=ny; e.moving=true;
+    } else {
+      e.cool=rnd(20,60);
+    }
+  }
+}
+// 接触判定：同じタイル or すれ違い接触
+function checkEnemyContact(){
+  if(state!==STATE.OVERWORLD) return false;
+  for(const e of mapEnemies){
+    if(!e.alive || e.stun>0) continue;
+    const close = Math.abs(e.px-hero.px)<TS*0.7 && Math.abs(e.py-hero.py)<TS*0.7;
+    if((e.x===hero.x && e.y===hero.y) || close){
+      hero.moving=false;
+      if(eventMode) startBattle(eventEnemyTpl, e, true);
+      else startBattle(ENEMIES[e.type], e);
+      return true;
+    }
+  }
+  return false;
+}
+/* ====================================================================
+   スタッフロール
+   ==================================================================== */
+const CREDIT_LINES = [
+  {text:'カピバラクエスト', size:28, color:'#ffd34e', bold:true, gap:10},
+  {text:'〜キメ顔の勇者〜', size:18, color:'#ffd34e', bold:false, gap:40},
+
+  {text:'── STAFF ──', size:13, color:'#8a7a6a', bold:false, gap:20},
+
+  {text:'ゲームデザイン', size:12, color:'#8a7a6a', bold:false, gap:4},
+  {text:'カピバラクエスト制作チーム', size:16, color:'#e2d8c8', bold:true, gap:28},
+
+  {text:'プログラム', size:12, color:'#8a7a6a', bold:false, gap:4},
+  {text:'カピバラクエスト制作チーム', size:16, color:'#e2d8c8', bold:true, gap:28},
+
+  {text:'シナリオ・世界観', size:12, color:'#8a7a6a', bold:false, gap:4},
+  {text:'カピバラクエスト制作チーム', size:16, color:'#e2d8c8', bold:true, gap:28},
+
+  {text:'キャラクターデザイン', size:12, color:'#8a7a6a', bold:false, gap:4},
+  {text:'カピ　カワウソン', size:16, color:'#e2d8c8', bold:true, gap:4},
+  {text:'長芋族のリーダー　ほか', size:14, color:'#c8bca8', bold:false, gap:28},
+
+  {text:'── SPECIAL THANKS ──', size:13, color:'#8a7a6a', bold:false, gap:20},
+
+  {text:'あそんでくれた すべての ひとへ', size:15, color:'#c8f0d8', bold:false, gap:28},
+
+  {text:'── STORY ──', size:13, color:'#8a7a6a', bold:false, gap:20},
+
+  {text:'むかし、みなみの たにに', size:14, color:'#c8bca8', bold:false, gap:6},
+  {text:'あたたかい おんせんを まもる', size:14, color:'#c8bca8', bold:false, gap:6},
+  {text:'カピバラたちが いた——', size:14, color:'#c8bca8', bold:false, gap:24},
+
+  {text:'45の ちを こえ、', size:14, color:'#e2d8c8', bold:false, gap:6},
+  {text:'カピは ついに せかいに', size:14, color:'#e2d8c8', bold:false, gap:6},
+  {text:'ながい はるを もたらした。', size:14, color:'#e2d8c8', bold:false, gap:40},
+
+  {text:'🦫🕶️', size:32, color:'#ffd34e', bold:false, gap:16},
+
+  {text:'キメ顔の勇者よ、', size:18, color:'#ffd34e', bold:true, gap:6},
+  {text:'ほんとうに ありがとう。', size:18, color:'#ffd34e', bold:true, gap:50},
+
+  {text:'ぜん45章 コンプリート！', size:22, color:'#fff', bold:true, gap:12},
+  {text:'〜 THE END 〜', size:16, color:'#cdbfa0', bold:false, gap:0},
+];
+
+let creditY = 0;       // 現在のスクロール位置（px）
+let creditDone = false; // スクロール完了フラグ
+
+function winGame(){
+  state = STATE.WIN;
+  // クレジットの開始位置 = 画面下から
+  creditY = 0;
+  creditDone = false;
+}
+
+/* ====================================================================
+   描画
+   ==================================================================== */
+function rnd(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+
+// カピバラ主人公スプライト（本物の画像を使用）
+const capyImg = new Image();
+let capyReady = false;
+capyImg.onload = ()=>{ capyReady = true; };
+capyImg.src = '/assets/capy.png';
+// 最終ボス「長芋族のリーダー」の 画像
+const nagaimoImg = new Image();
+let nagaimoReady = false;
+nagaimoImg.onload = ()=>{ nagaimoReady = true; };
+nagaimoImg.src = '/assets/nagaimo_boss.png';
+// プレイヤースキン画像
+const SKINS = ['default','nagaimo','mage'];
+const skinImgs = { nagaimo: new Image(), mage: new Image() };
+const skinReady = { nagaimo: false, mage: false };
+skinImgs.nagaimo.onload = ()=>{ skinReady.nagaimo = true; };
+skinImgs.nagaimo.src = '/assets/skin_nagaimo.png';
+skinImgs.mage.onload = ()=>{ skinReady.mage = true; };
+skinImgs.mage.src = '/assets/skin_mage.png';
+let playerSkin = 'default'; // 'default' | 'nagaimo' | 'mage'
+// 画像は左向き。dir==='right' のとき左右反転して右を向かせる。
+function getSkinImg(){ return (playerSkin!=='default' && skinReady[playerSkin]) ? skinImgs[playerSkin] : (capyReady ? capyImg : null); }
+function drawCapy(x,y,size,dir,frame){
+  const s=size/32;
+  const bob = (frame>10 && frame!==undefined)? -1*s : 0;
+  // 影
+  ctx.fillStyle='rgba(0,0,0,.25)';
+  ctx.beginPath(); ctx.ellipse(x+16*s, y+30*s, 13*s, 4*s, 0,0,7); ctx.fill();
+  const img = getSkinImg();
+  if(img){
+    const w = size*1.75;
+    const h = w * (img.height/img.width);
+    const dx = x + (size - w)/2;
+    const dy = y + (size - h) - 2*s + bob;
+    ctx.save();
+    if(dir==='right'){
+      ctx.translate(dx + w, dy);
+      ctx.scale(-1,1);
+      ctx.drawImage(img, 0, 0, w, h);
+    } else {
+      ctx.drawImage(img, dx, dy, w, h);
+    }
+    ctx.restore();
+  } else {
+    // 読み込み前のフォールバック
+    ctx.fillStyle='#c98a3a';
+    ctx.fillRect(x+4*s, y+12*s, 24*s, 16*s);
+  }
+}
+function roundBody(s){
+  ctx.beginPath();
+  const r=6*s;
+  const x0=2*s,y0=10*s,w=24*s,h=18*s;
+  ctx.moveTo(x0+r,y0);
+  ctx.arcTo(x0+w,y0,x0+w,y0+h,r);
+  ctx.arcTo(x0+w,y0+h,x0,y0+h,r);
+  ctx.arcTo(x0,y0+h,x0,y0,r);
+  ctx.arcTo(x0,y0,x0+w,y0,r);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+}
+
+function drawTile(t,x,y){
+  const px=x*TS, py=y*TS;
+  // ベースは草（章のバイオーム色）
+  ctx.fillStyle = ((x+y)%2===0)?stageTint:stageTint2;
+  ctx.fillRect(px,py,TS,TS);
+  if(t===0){
+    // 草むら（しるし）
+    ctx.fillStyle='#6fa050';
+    ctx.fillRect(px+6,py+22,4,6); ctx.fillRect(px+14,py+18,4,10); ctx.fillRect(px+22,py+23,4,6);
+  } else if(t===1){ // 木
+    ctx.fillStyle='#7a5a32'; ctx.fillRect(px+13,py+18,6,12);
+    ctx.fillStyle='#3f7d3a'; ctx.beginPath(); ctx.arc(px+16,py+14,12,0,7); ctx.fill();
+    ctx.fillStyle='#4f9646'; ctx.beginPath(); ctx.arc(px+12,py+11,6,0,7); ctx.fill();
+  } else if(t===2){ // 水
+    ctx.fillStyle='#5aa9e6'; ctx.fillRect(px,py,TS,TS);
+    ctx.fillStyle='#7bc0f2'; ctx.fillRect(px+4,py+8,8,3); ctx.fillRect(px+18,py+18,8,3);
+  } else if(t===3){ // 道
+    ctx.fillStyle='#d8b88a'; ctx.fillRect(px,py,TS,TS);
+    ctx.fillStyle='#c8a576'; ctx.fillRect(px+6,py+6,4,4); ctx.fillRect(px+20,py+18,4,4);
+  } else if(t===4){ // 壁
+    ctx.fillStyle='#7a6a55'; ctx.fillRect(px,py,TS,TS);
+    ctx.fillStyle='#5e5142'; ctx.fillRect(px,py+14,TS,2); ctx.fillRect(px+15,py,2,14);
+  } else if(t===5){ // 看板
+    ctx.fillStyle=stageTint; ctx.fillRect(px,py,TS,TS);
+    ctx.fillStyle='#7a5a32'; ctx.fillRect(px+14,py+14,4,14);
+    ctx.fillStyle='#c98a3a'; ctx.fillRect(px+6,py+6,20,12);
+    ctx.fillStyle='#5e3b16'; ctx.fillRect(px+9,py+9,14,2); ctx.fillRect(px+9,py+13,10,2);
+  } else if(t===6){ // 宝箱
+    ctx.fillStyle=stageTint; ctx.fillRect(px,py,TS,TS);
+    ctx.fillStyle='#a06a2c'; ctx.fillRect(px+6,py+12,20,14);
+    ctx.fillStyle='#7a4d18'; ctx.fillRect(px+6,py+12,20,5);
+    ctx.fillStyle='#ffd34e'; ctx.fillRect(px+14,py+17,4,5);
+  } else if(t===7){ // ボス門
+    ctx.fillStyle='#3a3142'; ctx.fillRect(px,py,TS,TS);
+    ctx.fillStyle='#1d1726'; ctx.fillRect(px+5,py+4,22,26);
+    ctx.fillStyle='#a04fa0'; ctx.fillRect(px+12,py+12,8,8);
+    ctx.fillStyle='#ff79c6'; ctx.fillRect(px+14,py+14,4,4);
+  } else if(t===8){ // NPC
+    ctx.fillStyle=stageTint; ctx.fillRect(px,py,TS,TS);
+    // おじいさん
+    ctx.fillStyle='#d9b38c'; ctx.fillRect(px+11,py+8,10,8);
+    ctx.fillStyle='#eee'; ctx.fillRect(px+10,py+14,12,6); // ひげ
+    ctx.fillStyle='#4a7'; ctx.fillRect(px+10,py+18,12,10); // ふく
+    ctx.fillStyle='#222'; ctx.fillRect(px+13,py+11,2,2); ctx.fillRect(px+17,py+11,2,2);
+  }
+}
+
+// マップ上の敵（小さいスプライト）
+function drawMapEnemy(e){
+  const t=ENEMIES[e.type];
+  const cx=e.px+TS/2, cy=e.py+TS/2;
+  const bob = (e.moving && e.frame>10)? -1:0;
+  // 影
+  ctx.fillStyle='rgba(0,0,0,.25)';
+  ctx.beginPath(); ctx.ellipse(cx,e.py+TS-4,9,3,0,0,7); ctx.fill();
+  ctx.save(); ctx.translate(cx, cy+bob);
+  let dim = e.stun>0 ? 0.45 : 1;
+  // 湧き演出（フェード＋ふくらみ）
+  if(e.spawnFx>0){ dim *= (1 - e.spawnFx/18); const sc=1.3 - 0.3*(e.spawnFx/18); ctx.scale(sc,sc); e.spawnFx--; }
+  ctx.globalAlpha = dim;
+  if(e.type===0){ // スライムねこ
+    ctx.fillStyle=t.col;
+    ctx.beginPath(); ctx.moveTo(-11,8); ctx.quadraticCurveTo(-11,-9,0,-9);
+    ctx.quadraticCurveTo(11,-9,11,8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#2a5'; ctx.fillRect(-9,-12,4,5); ctx.fillRect(5,-12,4,5); // 耳
+    ctx.fillStyle='#143'; ctx.fillRect(-6,-2,3,3); ctx.fillRect(3,-2,3,3);
+  } else if(e.type===1){ // いたずらカラス
+    ctx.fillStyle=t.col;
+    ctx.beginPath(); ctx.ellipse(0,2,10,9,0,0,7); ctx.fill();
+    ctx.fillStyle='#3a4350'; ctx.beginPath(); ctx.moveTo(-12,-2); ctx.lineTo(-2,-8); ctx.lineTo(-2,2); ctx.fill();
+    ctx.fillStyle='#ffce3a'; ctx.beginPath(); ctx.moveTo(9,0); ctx.lineTo(15,2); ctx.lineTo(9,4); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.fillRect(2,-4,3,3); ctx.fillStyle='#000'; ctx.fillRect(3,-3,2,2);
+  } else { // マッドゴーレム
+    ctx.fillStyle=t.col;
+    ctx.fillRect(-10,-10,20,20);
+    ctx.fillStyle='#7a4f28'; ctx.fillRect(-10,-10,20,4);
+    ctx.fillStyle='#ffce3a'; ctx.fillRect(-6,-2,4,4); ctx.fillRect(2,-2,4,4);
+  }
+  ctx.globalAlpha=1;
+  ctx.restore();
+  // ビックリマーク（接近中の合図）
+  const d=Math.abs(e.x-hero.x)+Math.abs(e.y-hero.y);
+  if(d<=2 && e.stun<=0){
+    ctx.fillStyle='#ff3b3b'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('!', cx, e.py-2); ctx.textAlign='left';
+  }
+}
+function drawOverworld(){
+  ctx.fillStyle='#0c0a12'; ctx.fillRect(0,0,W,H);
+  // カメラ：英雄中心
+  let camx = hero.px - W/2 + TS/2;
+  let camy = hero.py - H/2 + TS/2;
+  camx = Math.max(0, Math.min(camx, MAP_W*TS - W));
+  camy = Math.max(0, Math.min(camy, MAP_H*TS - H));
+  ctx.save(); ctx.translate(-Math.round(camx),-Math.round(camy));
+  for(let y=0;y<MAP_H;y++) for(let x=0;x<MAP_W;x++) drawTile(map[y][x],x,y);
+  // マップ敵
+  for(const e of mapEnemies){ if(e.alive) drawMapEnemy(e); }
+  drawCapy(hero.px, hero.py, TS, hero.dir, hero.moving?hero.frame:0);
+  ctx.restore();
+  // HUD
+  drawHUD();
+}
+function drawHUD(){
+  ctx.fillStyle='rgba(20,14,28,.78)';
+  ctx.fillRect(6,6,150,52);
+  ctx.strokeStyle='#ffd34e'; ctx.lineWidth=1; ctx.strokeRect(6,6,150,52);
+  ctx.fillStyle='#fff'; ctx.font='bold 12px sans-serif'; ctx.textAlign='left';
+  ctx.fillText(`${player.name}  Lv${player.lv}`,12,22);
+  bar(12,28,100,7,player.hp/player.maxhp,'#e8493a'); ctx.fillStyle='#fff'; ctx.font='10px sans-serif';
+  ctx.fillText(`HP ${player.hp}/${player.maxhp}`,116,35);
+  bar(12,40,100,7,player.mp/player.maxmp,'#3aa0e8');
+  ctx.fillText(`MP ${player.mp}/${player.maxmp}`,116,47);
+  // gold
+  ctx.fillStyle='#ffd34e'; ctx.font='bold 11px sans-serif'; ctx.textAlign='right';
+  ctx.fillText(`${player.gold} G`, W-10, 22);
+  // ステージ表示
+  ctx.fillStyle='#fff'; ctx.font='bold 12px sans-serif';
+  ctx.fillText(`第${stage}章 / ${MAX_STAGE}`, W-10, 40);
+  ctx.fillStyle='#cdbfa0'; ctx.font='11px sans-serif';
+  ctx.fillText(stageName(stage), W-10, 55);
+  ctx.textAlign='left';
+}
+function bar(x,y,w,h,p,col){
+  ctx.fillStyle='#000'; ctx.fillRect(x-1,y-1,w+2,h+2);
+  ctx.fillStyle='#3a2f2a'; ctx.fillRect(x,y,w,h);
+  ctx.fillStyle=col; ctx.fillRect(x,y,Math.max(0,w*p),h);
+}
+
+/* ---------- バトル描画 ---------- */
+function drawBattle(){
+  let sx=0, sy=0;
+  if(battle.shake>0){ sx=rnd(-battle.shake,battle.shake)/2; sy=rnd(-battle.shake,battle.shake)/2; battle.shake--; }
+  ctx.save(); ctx.translate(sx,sy);
+  // 背景
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#2a1d3a'); g.addColorStop(1,'#120c1c');
+  ctx.fillStyle=g; ctx.fillRect(-10,-10,W+20,H+20);
+  // 地面
+  ctx.fillStyle='#241a30'; ctx.fillRect(0,180,W,90);
+  // フラッシュ
+  if(battle.flash>0){ ctx.fillStyle=`rgba(255,255,255,${battle.flash/14})`; ctx.fillRect(-10,-10,W+20,H+20); battle.flash--; }
+
+  // 敵（中央うえ）
+  const e=battle.enemy;
+  const eShake = battle.enemyHurt>0 ? rnd(-3,3):0;
+  const ex=300;
+  ctx.save(); ctx.translate(ex+eShake, 118);
+  const ehurt = battle.enemyHurt>0;
+  drawEnemy(e, ehurt);
+  if(battle.enemyHurt>0) battle.enemyHurt--;
+  ctx.restore();
+  // 敵の名前とHPバー
+  ctx.fillStyle='#fff'; ctx.font='bold 13px sans-serif'; ctx.textAlign='center';
+  ctx.fillText(e.n, ex, 46);
+  bar(ex-62, 54, 124, 9, e.hp/e.maxhp, '#e8493a');
+  ctx.fillStyle='#cdbfa0'; ctx.font='10px sans-serif';
+  ctx.fillText(`HP ${Math.max(0,e.hp)}/${e.maxhp}`, ex, 76);
+
+  // 味方カピ（左、おおきく画像で）
+  const pHurtX = battle.playerHurt>0 ? rnd(-3,3):0;
+  drawCapyBattle(16+pHurtX, 116, 152);
+  if(battle.playerHurt>0) battle.playerHurt--;
+
+  // 自分のステータスパネル（左上・つねに表示）
+  drawBattleStatus();
+
+  // ログウィンドウ（下・全幅）
+  ctx.fillStyle='rgba(10,6,16,.9)'; ctx.fillRect(8,252,W-16,60);
+  ctx.strokeStyle='#ffd34e'; ctx.strokeRect(8,252,W-16,60);
+  ctx.fillStyle='#fff'; ctx.font='13px sans-serif'; ctx.textAlign='left';
+  battle.log.slice(-2).forEach((l,i)=> ctx.fillText(l, 18, 274+i*18));
+
+  // コマンドウィンドウ（右下）
+  if(battle.turn==='player' && !battle.over && battle.anim<=0){
+    drawBattleMenu();
+  }
+  ctx.restore();
+  if(battle.anim>0) battle.anim--;
+}
+// バトル中の自分ステータス
+function drawBattleStatus(){
+  ctx.fillStyle='rgba(20,14,28,.85)'; ctx.fillRect(8,8,176,58);
+  ctx.strokeStyle='#ffd34e'; ctx.lineWidth=1; ctx.strokeRect(8,8,176,58);
+  ctx.textAlign='left'; ctx.fillStyle='#fff'; ctx.font='bold 13px sans-serif';
+  ctx.fillText(`${player.name}  Lv${player.lv}`, 14, 24);
+  ctx.fillStyle='#ffd34e'; ctx.font='bold 11px sans-serif'; ctx.textAlign='right';
+  ctx.fillText(`${player.gold}G`, 178, 24); ctx.textAlign='left';
+  bar(14, 30, 110, 8, player.hp/player.maxhp, '#e8493a');
+  ctx.fillStyle='#fff'; ctx.font='10px sans-serif';
+  ctx.fillText(`HP ${player.hp}/${player.maxhp}`, 128, 38);
+  bar(14, 44, 110, 8, player.mp/player.maxmp, '#3aa0e8');
+  ctx.fillText(`MP ${player.mp}/${player.maxmp}`, 128, 52);
+}
+// バトル用カピバラ（画像を 右向きに、影つきで）
+function drawCapyBattle(x,y,w){
+  const img = getSkinImg();
+  const aspect = img ? (img.height/img.width) : 0.75;
+  const h = w*aspect;
+  ctx.fillStyle='rgba(0,0,0,.3)';
+  ctx.beginPath(); ctx.ellipse(x+w*0.5, y+h-6, w*0.38, 7, 0,0,7); ctx.fill();
+  if(img){
+    ctx.save(); ctx.translate(x+w, y); ctx.scale(-1,1);
+    ctx.drawImage(img, 0, 0, w, h); ctx.restore();
+  } else {
+    ctx.fillStyle='#c98a3a'; ctx.fillRect(x+w*0.1, y+h*0.3, w*0.8, h*0.5);
+  }
+}
+function drawEnemy(e, hurt){
+  const c = hurt && (frameTick%4<2) ? '#fff' : e.col;
+  if(e.boss && e.img==='nagaimo' && nagaimoReady){
+    // 最終ボス「長芋族のリーダー」（画像）
+    const ih = 168;
+    const iw = ih * (nagaimoImg.width/nagaimoImg.height);
+    if(hurt && (frameTick%4<2)){
+      ctx.save(); ctx.globalAlpha=0.85;
+      ctx.drawImage(nagaimoImg, -iw/2, -ih/2, iw, ih);
+      ctx.globalCompositeOperation='source-atop';
+      ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.fillRect(-iw/2,-ih/2,iw,ih);
+      ctx.restore();
+    } else {
+      ctx.drawImage(nagaimoImg, -iw/2, -ih/2, iw, ih);
+    }
+    return;
+  }
+  if(e.boss){
+    // 大きいカワウソ魔王
+    ctx.fillStyle=c;
+    ctx.beginPath(); ctx.ellipse(0,0,46,40,0,0,7); ctx.fill();
+    ctx.fillStyle='#5a3a82'; ctx.fillRect(-30,-46,60,18);
+    ctx.fillStyle='#2a1740'; // つの
+    ctx.beginPath(); ctx.moveTo(-30,-44); ctx.lineTo(-44,-62); ctx.lineTo(-20,-44); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(30,-44); ctx.lineTo(44,-62); ctx.lineTo(20,-44); ctx.fill();
+    ctx.fillStyle='#ff3b3b'; // 目
+    ctx.beginPath(); ctx.arc(-14,-6,6,0,7); ctx.arc(14,-6,6,0,7); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='bold 20px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(e.face, 0, 26);
+  } else {
+    ctx.fillStyle=c;
+    ctx.beginPath(); ctx.ellipse(0,0,30,26,0,0,7); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(e.face, 0, 6);
+  }
+}
+function drawBattleMenu(){
+  if(battle.sub===null){
+    // メインコマンド（右下）
+    const bx=300, by=150, bw=170, bh=96;
+    ctx.fillStyle='rgba(10,6,16,.92)'; ctx.fillRect(bx,by,bw,bh);
+    ctx.strokeStyle='#ffd34e'; ctx.strokeRect(bx,by,bw,bh);
+    ctx.font='14px sans-serif'; ctx.textAlign='left';
+    // 5項目を2列で
+    PMENU.forEach((m,i)=>{
+      ctx.fillStyle = i===battle.menu ? '#ffd34e' : '#fff';
+      const col = i<3?0:1;
+      const row = i<3?i:i-3;
+      ctx.fillText((i===battle.menu?'▶':'　')+m, bx+10+col*86, by+24+row*26);
+    });
+  } else {
+    // スキル / どうぐ（スクロール対応）
+    const bx=128, by=70, bw=344, bh=172;
+    const list = battle.sub==='skill'?availableSkills():ITEMS;
+    ctx.fillStyle='rgba(10,6,16,.96)'; ctx.fillRect(bx,by,bw,bh);
+    ctx.strokeStyle='#3aa0e8'; ctx.strokeRect(bx,by,bw,bh);
+    ctx.font='bold 12px sans-serif'; ctx.textAlign='left';
+    ctx.fillStyle='#9af';
+    ctx.fillText(battle.sub==='skill'?`スキル（Lv${player.lv}）`:'どうぐ', bx+12, by+18);
+    // スクロール窓（最大6件）
+    const maxShow=6;
+    let start=0;
+    if(battle.subIdx>maxShow-2) start=Math.min(battle.subIdx-maxShow+2, list.length-maxShow);
+    start=Math.max(0,start);
+    const shown=list.slice(start,start+maxShow);
+    ctx.font='14px sans-serif';
+    shown.forEach((it,i)=>{
+      const idx=start+i;
+      ctx.fillStyle = idx===battle.subIdx ? '#ffd34e':'#fff';
+      const label = typeof it.name==='function'?it.name():it.name;
+      ctx.fillText((idx===battle.subIdx?'▶ ':'　')+label, bx+12, by+40+i*21);
+    });
+    ctx.fillStyle='#9a8'; ctx.font='11px sans-serif';
+    if(start>0) ctx.fillText('▲', bx+bw-22, by+38);
+    if(start+maxShow<list.length) ctx.fillText('▼', bx+bw-22, by+bh-22);
+    ctx.fillText('X で もどる', bx+12, by+bh-10);
+  }
+}
+
+/* ---------- タイトル / 勝利 ---------- */
+function drawWin(){
+  // 背景グラデーション（夜空→あかね）
+  const bg = ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#0c0818'); bg.addColorStop(1,'#2a1a08');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+
+  // 星をランダムに散らす（frameTick で静止した乱数で固定）
+  for(let i=0;i<60;i++){
+    const sx = (i*137+53)%W, sy = (i*97+17)%(H*0.7);
+    const alpha = 0.4 + 0.6*Math.abs(Math.sin(frameTick*0.02+i));
+    ctx.fillStyle = `rgba(255,255,220,${alpha.toFixed(2)})`;
+    ctx.fillRect(sx,sy,1.5,1.5);
+  }
+
+  // スクロール量を計算（全クレジット高さ）
+  let totalH = H; // 最初は画面1枚分の余白
+  for(const ln of CREDIT_LINES) totalH += ln.size + 8 + ln.gap;
+  totalH += H * 0.8; // 末尾余白
+
+  if(!creditDone){
+    creditY += 0.7; // スクロール速度（px/frame）
+    if(creditY >= totalH) creditDone = true;
+  }
+
+  // クリップして画面外を描かない
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0,0,W,H); ctx.clip();
+
+  // テキストをスクロール描画
+  ctx.textAlign='center';
+  let y = H - creditY;
+  for(const ln of CREDIT_LINES){
+    y += ln.size + 8;
+    if(y > -40 && y < H+40){
+      ctx.font = (ln.bold?'bold ':'')+ln.size+'px sans-serif';
+      ctx.fillStyle = ln.color;
+      ctx.fillText(ln.text, W/2, y);
+    }
+    y += ln.gap;
+  }
+
+  ctx.restore();
+
+  // クレジット完了後：カピバラとプレイヤー情報を表示
+  if(creditDone){
+    const bg2=ctx.createLinearGradient(0,0,0,H);
+    bg2.addColorStop(0,'#1a1008'); bg2.addColorStop(1,'#0c0818');
+    ctx.fillStyle=bg2; ctx.fillRect(0,0,W,H);
+    // 紙吹雪
+    for(let i=0;i<40;i++){
+      ctx.fillStyle=['#ffd34e','#ff79c6','#6fcf97','#5aa9e6'][i%4];
+      ctx.fillRect((i*53)%W, (frameTick*1.2+i*37)%(H+20), 4,4);
+    }
+    drawCapy(W/2-32, H/2-80, 64, 'right', 0);
+    ctx.textAlign='center';
+    ctx.fillStyle='#ffd34e'; ctx.font='bold 26px sans-serif';
+    ctx.fillText('ぜん45章 クリア！', W/2, H/2+10);
+    ctx.fillStyle='#fff'; ctx.font='16px sans-serif';
+    ctx.fillText('せかいに ながい はるが もどった。', W/2, H/2+36);
+    ctx.fillStyle='#cdbfa0'; ctx.font='13px sans-serif';
+    ctx.fillText(`最終Lv ${player.lv}　所持金 ${player.gold}G　〜 THE END 〜`, W/2, H/2+62);
+    ctx.fillStyle='#ffd34e'; ctx.font='12px sans-serif';
+    ctx.fillText('Enter / クリック で ランキング & オプション', W/2, H-24);
+  } else {
+    // スクロール中はスキップ案内
+    ctx.textAlign='center';
+    ctx.fillStyle='rgba(200,180,150,0.55)'; ctx.font='11px sans-serif';
+    ctx.fillText('Enter / クリック で スキップ', W/2, H-16);
+  }
+  ctx.textAlign='left';
+}
+
+/* ====================================================================
+   ストーリー
+   ==================================================================== */
+const story = { firstKill:false, vision:false, fruit:false, cave:false, bossIntro:false };
+let killCount = 0;
+
+// マルチページのストーリー表示
+function showStory(pages, done){
+  let i=0;
+  state=STATE.MODAL;
+  function step(){
+    if(i>=pages.length){ modalEl.classList.add('hidden'); if(done)done(); return; }
+    const p=pages[i++];
+    document.getElementById('modalTitle').innerHTML=p.t;
+    document.getElementById('modalBody').innerHTML=p.b;
+    modalEl.classList.remove('hidden');
+    const btn=document.getElementById('modalBtn');
+    btn.textContent = (i>=pages.length)?'とじる':'▶ つぎへ';
+    btn.onclick=step;
+  }
+  step();
+}
+
+const PROLOGUE = [
+  {t:'🌅 プロローグ', b:'むかしむかし、みなみの しずかな たにに——<br>「カピバラの里」と よばれる ちいさな むらが あった。'},
+  {t:'🌅 プロローグ', b:'そこは としの あたたかい おんせんと、たわわに みのる みかんの きに めぐまれ、<br>カピバラたちは まいにち のんびりと、ゆずを うかべた おゆに つかって くらしていた。'},
+  {t:'🌅 プロローグ', b:'そんな のどかな 里に、ひとりの わかい カピバラが いた。<br>なまえは <b>カピ</b>。<br>むかしから ふしぎな <b>「キメ顔のサングラス」</b>を かけ、どんな ピンチでも けっして あわてない——里いちばんの ゆうかんもの だった。'},
+  {t:'❄️ 異変', b:'ところが ある ふゆの あさ。<br>あれほど あたたかかった おんせんが、いっしゅんで <b>こおりついて</b> しまった。<br>そらは くろい くもに おおわれ、みかんは しもで まっくろに かれていく。'},
+  {t:'❄️ 異変', b:'里に つたわる ふるい でんしょうが あった。<br>『きた の どうくつに、すべての ぬくもりを ぬすむ <b>魔王カワウソン</b>が ねむっている。<br>そいつが めざめる とき、たにの ふゆは おわらない——』'},
+  {t:'🧑‍🌾 里長のたのみ', b:'里長の おじいさんは、ふるえる てで カピの かたを つかんだ。<br>「カピよ…… おまえの キメ顔だけが、あの くらやみに たちむかえる ひかり じゃ。<br>どうか、里の はる を とりもどしておくれ。」'},
+  {t:'🦫 旅立ち', b:'カピは サングラスを くいっと あげ、しずかに うなずいた。<br>「——まかせて。<br>　こおった おんせん、おれが あっためなおす。」<br><br><i>こうして キメ顔の勇者の たびが はじまった。</i>'},
+];
+const STORY_FIRSTKILL = [
+  {t:'⚔️ はじめての勝利', b:'まものを たおした カピは、てのひらに のこる ぬくもりを かんじた。<br>「やっぱり…… こいつら、ほんとは <b>さむさで くるってる</b> だけなんだ。<br>　わるいやつ なんかじゃ ない。」'},
+  {t:'⚔️ はじめての勝利', b:'魔王の くらやみが、まものたちの こころまで こおらせている。<br>カピは サングラスの おくで、しずかに めを ほそめた。<br>「……はやく、もとに もどして あげないとな。」'},
+];
+const STORY_VISION = [
+  {t:'💫 とおい記憶', b:'みっつめの まものを たおした とき、カピの あたまに <b>見たことのない けしき</b>が ながれこんできた。'},
+  {t:'💫 とおい記憶', b:'——むかし、おんせんの ほとりで わらいあう ふたつの かげ。<br>ひとりは わかき 里長。そして もうひとりは…… <b>ちいさな カワウソ</b>。<br>ふたりは しんゆう だった。'},
+  {t:'💫 とおい記憶', b:'だが ある ひ、カワウソは たにを おわれた。<br>「よそもの」と そしられ、ひとり きたの どうくつへ きえていった。<br><br>カピは むねが ぎゅっと いたんだ。<br>「魔王カワウソン…… おまえ、もしかして——」'},
+];
+const STORY_FRUIT = [
+  {t:'🌟 光の木の実', b:'宝箱の おくで、ちいさな みが きんいろに かがやいていた。<br>これは でんせつの <b>「光の木の実」</b>。<br>たいようの ぬくもりを ぎゅっと とじこめた、里の たからもの だ。'},
+  {t:'🌟 光の木の実', b:'ひとくち かじると、からだの おくから ちからが わいてくる。<br>「これなら…… くらやみにも まけない。」<br>カピの サングラスが、きらりと ひかった。'},
+];
+const STORY_CAVE = [
+  {t:'🕳️ 北の洞窟', b:'たにの きたはずれ。<br>くうきが ずしりと おもく、はくいきが しろく こおる。<br>いわはだには、こおりついた つめの あとが いくつも きざまれていた。'},
+  {t:'🕳️ 北の洞窟', b:'どうくつの おくから、ひくい こえが ひびいてくる。<br>『……だれだ。<br>　また おれを、おいだしに きたのか?』<br><br>カピは ふかく いきを すって、まえへ すすんだ。'},
+];
+const STORY_BOSSINTRO = [
+  {t:'👹 魔王カワウソン', b:'こおりの たまざの うえに、おおきな カワウソが すわっていた。<br>その めは かなしみで くもり、ぜんしんから くろい れいきが ふきだしている。'},
+  {t:'👹 魔王カワウソン', b:'「カピバラの こぞうか。<br>　あの たには おれを すてた。だから おれも、たにの ぬくもりを すべて うばってやる。<br>　みんな、おれと おなじ さむさを あじわえばいい!」'},
+  {t:'🦫 カピのこたえ', b:'カピは サングラスを はずさず、まっすぐ カワウソンを みた。<br>「さむかったんだな。ずっと、ひとりで。<br>　でも——おまえの いばしょは、まだ あの たにに のこってる。<br>　おれが、つれもどしに きた。」<br><br>「……だまれっ! ちからで しめして みせろ!」'},
+];
+const EPILOGUE = [
+  {t:'🌈 エピローグ', b:'カワウソンの からだから、くろい れいきが すうっと きえていく。<br>のこったのは、ぼろぼろに つかれた、ちいさな カワウソだった。'},
+  {t:'🌈 エピローグ', b:'「……どうして、とどめを ささない。」<br>「いっただろ。」と カピは わらった。<br>「つれもどしに きたって。」'},
+  {t:'🌈 エピローグ', b:'そのとき、どうくつの こおりが ぱきりと われ、<br>おくから あたたかい おゆが こんこんと わきだした。<br>カワウソンが ねむらせていた、<b>げんせんの ぬくもり</b>だ。'},
+  {t:'🏡 里に春が', b:'たにに もどると、くろい くもは きえ、みかんの きには ふたたび はなが さいていた。<br>こおっていた おんせんからは、ゆげが ゆらゆらと たちのぼっている。'},
+  {t:'🏡 里に春が', b:'里長は、カワウソンを みて なみだを こぼした。<br>「……かえって きたのか。<br>　ずっと、あやまりたかった。すまなかった、しんゆうよ。」<br>カワウソンも、はじめて ちいさく わらった。'},
+  {t:'♨️ それから', b:'それから 里では、カピバラも カワウソも、おなじ おゆに つかって ゆずを ながめる ように なった。<br>キメ顔の勇者 カピは、きょうも おんせんの まんなかで、サングラスごしに のんびり ひなたぼっこ。'},
+  {t:'🎉 おしまい', b:'——こうして たにに、ながい ながい はるが もどった。<br><br><b>カピバラクエスト 〜キメ顔の勇者〜<br>　　　　　　　　　 THE END</b><br><br>あそんでくれて ありがとう! 🦫🕶️'},
+];
+
+function maybeStoryAfterBattle(){
+  if(stage>1) return; // 章ごとの 序盤イベントは 第1章のみ
+  if(!story.firstKill && killCount>=1){ story.firstKill=true; showStory(STORY_FIRSTKILL, ()=>{ state=STATE.OVERWORLD; }); return; }
+  if(!story.vision && killCount>=3){ story.vision=true; showStory(STORY_VISION, ()=>{ state=STATE.OVERWORLD; }); return; }
+}
+
+/* ---------- 45章ぶんの ストーリー（自動生成） ---------- */
+// 第1章のボス(カワウソン)を倒したあとの「つづく」ヒキ
+const STAGE1_TWIST = [
+  {t:'🌑 …しかし', b:'へいわが もどった——かに 見えた その とき。<br>そらの むこうで、なにかが パキィン と われる おとが ひびいた。'},
+  {t:'🌑 …しかし', b:'カワウソンが つぶやく。<br>「……おれを あやつっていた やつが、まだ いる。<br>　この せかいの ぬくもりを ねらう やつらは、ひとりじゃ ないんだ。」'},
+  {t:'🦫 つぎの旅へ', b:'カピは サングラスを くいっと あげた。<br>「——なら、ぜんぶ あっためなおすだけだ。<br>　いくぞ、つぎの ばしょへ。」<br><br><i>キメ顔の勇者の たびは、まだまだ つづく。</i>'},
+];
+function stageClearStory(){
+  const b=biomeOf(stage);
+  return [
+    {t:`🏆 第${stage}章 クリア`, b:`<b>${bossName(stage)}</b>を たおした！<br>「${stageName(stage)}」に ぬくもりが もどっていく。`},
+    {t:'🌟 つぎなる地へ', b:'だが まだ、せかいには くらやみに のまれた ばしょが のこっている。<br>カピは あらたな ちへ あしを すすめた——'},
+  ];
+}
+function stageIntroStory(){
+  const b=biomeOf(stage);
+  let flavor = {
+    'みどりの森':'木々が ざわめき、まものの けはいが こい。',
+    'こおりの谷':'はくいきが しろく こおり、あしもとが すべる。',
+    'ほのおの山':'ねつ風が ふきつけ、いわが あかく やけている。',
+    'すなの遺跡':'くずれた はしらが ならび、すなが まいあがる。',
+    'よるの墓地':'つめたい きりの なか、ひとだまが ゆれている。',
+    'そらの神殿':'くもの うえ、ひかりの かいだんが てんへ つづく。',
+    'まきょうの沼':'あわが ぼこぼこと わき、どくの においが する。',
+    'はがねの城':'はぐるまが きしみ、こうてつの へいが ならぶ。',
+    'やみの深淵':'そこなし の やみ。あしおとさえ すいこまれる。',
+    'ひかりの果て':'まばゆい ひかりが すべてを つつむ、せかいの はて。',
+  }[b.n] || 'みしらぬ けはいが ただよう。';
+  if(stage>=40) flavor = 'くもを こえた さきの 「天の世界」。<br>くうきが ぴんと はりつめ、つよい けはいが あたりを つつむ。';
+  return [
+    {t:`🗺️ 第${stage}章　${stageName(stage)}`, b:`カピは あらたな ちに たどりついた。<br>${flavor}`},
+    {t:`🗺️ 第${stage}章　${stageName(stage)}`, b:`ここの まものは これまでより <b>ずっと つよい</b>。<br>レベルを あげ、宝箱を あつめて、おくの 門で まつ <b>${bossName(stage)}</b>を たおせ！`},
+  ];
+}
+function genericBossIntro(){
+  if(stage>=45){
+    return [
+      {t:`🥔 ${bossName(stage)}`, b:`天の世界の さいおく。ながく ふとい かげが ゆらりと たちあがった。<br>「……よくぞ ここまで のぼってきた、カピバラの ゆうしゃよ。」`},
+      {t:`🥔 ${bossName(stage)}`, b:`「われこそは <b>長芋族のリーダー</b>。<br>　この そらの すべてを ねばりで つつむ もの。<br>　その キメ顔、われが くずして みせよう!」<br><br>カピは サングラスの おくで、しずかに かまえた。`},
+    ];
+  }
+  if(stage>=40){
+    return [
+      {t:`👹 ${bossName(stage)}`, b:`天の世界の ぬしが、ひかりを まとって たちはだかる。<br>「ここは てんの りょういき。<br>　じめんの ものが くる ばしょでは ない。」`},
+      {t:`👹 ${bossName(stage)}`, b:`「ひきかえせ——と いっても、きかぬのだろうな。<br>　ならば、ちからで しめすまで!」<br><br>カピは サングラスを はずさず、まえへ ふみだした。`},
+    ];
+  }
+  return [
+    {t:`👹 ${bossName(stage)}`, b:`門の おくに、この ちを こおらせる ぬしが まっていた。<br>「カピバラの こぞうか…… よくぞ ここまで きた。」`},
+    {t:`👹 ${bossName(stage)}`, b:`「だが、この さきへは いかせん。<br>　おれの ちからの まえに、ひざを つけ!」<br><br>カピは サングラスを はずさず、まえへ ふみだした。`},
+  ];
+}
+const FINAL_ENDING = [
+  {t:'🌅 さいごの戦い', b:`天の世界の おくの おく、<br><b>${'長芋族のリーダー'}</b>を こえ、カピは ついに せかいの はてに たどりついた。`},
+  {t:'🌅 真実', b:'すべての くらやみの もとは、<br>「だれかに ぬくもりを わけてもらえなかった」 さみしさ だった。<br>カピは その すべてを、キメ顔ひとつで うけとめてきた。'},
+  {t:'♨️ せかいに春', b:'45の ち すべてに、おんせんの ゆげが たちのぼる。<br>もう こおる ばしょは、どこにも ない。'},
+  {t:'🎉 真エンディング', b:'カピバラも、カワウソも、長芋たちも、<br>みんな おなじ おゆに つかって ゆずを ながめている。<br><br><b>45の たびを のりこえた、しんの キメ顔の勇者——<br>その なは、えいえんに かたりつがれた。</b>'},
+  {t:'🦫🕶️ THE END', b:'<b>カピバラクエスト 〜キメ顔の勇者〜<br>　　ぜん45章 コンプリート！</b><br><br>ほんとうに ながい たび、あそんでくれて ありがとう！'},
+];
+// 章を すすめる
+function advanceStage(){
+  stage++;
+  if(stage>maxStage) maxStage=stage;
+  player.hp=player.maxhp; player.mp=player.maxmp;
+  resetMapForStage();
+  killCount=0;
+  saveGame();
+  showStory(stageIntroStory(), ()=>{ state=STATE.OVERWORLD; saveGame(); });
+}
+// ボス戦の 開始（章に応じた 前口上つき）
+function startBossFight(){
+  if(eventMode){ startBattle(eventBossTpl, null, true); return; }
+  const intro = (stage===1) ? STORY_BOSSINTRO : genericBossIntro();
+  if(!story.bossIntro){ story.bossIntro=true; showStory(intro, ()=>startBattle(getStageBoss())); }
+  else startBattle(getStageBoss());
+}
+
+/* ====================================================================
+   セーブ / ロード（Cookie 保存。file:// で Cookie が使えない環境向けに
+   localStorage にも二重保存する）
+   ==================================================================== */
+const SAVE_KEY = 'capyquest';
+function buildSave(){
+  return {
+    v:1,
+    stage, maxStage,
+    player: {...player},
+    story: {...story},
+    killCount, npcTalked, bossDefeated,
+    startX, startY, gateX, gateY,
+    map: map.map(r=>r.slice()),
+    hero: {x:hero.x, y:hero.y},
+    enemies: mapEnemies.map(e=>({x:e.x,y:e.y,type:e.type,alive:e.alive})),
+    playerSkin,
+  };
+}
+function writeSaveRaw(json){
+  try{
+    document.cookie = SAVE_KEY+'='+encodeURIComponent(json)+';max-age=31536000;path=/';
+    try{ localStorage.setItem(SAVE_KEY, json); }catch(e){}
+    return true;
+  }catch(e){ return false; }
+}
+function saveGame(){
+  if(eventMode) return false; // イベントステージ中は 通常セーブを 上書きしない（復帰後に 保存）
+  try{ return writeSaveRaw(JSON.stringify(buildSave())); }catch(e){ return false; }
+}
+function readSave(){
+  // まず Cookie
+  const m = document.cookie.match(new RegExp('(?:^|;\\s*)'+SAVE_KEY+'=([^;]*)'));
+  if(m){ try{ return JSON.parse(decodeURIComponent(m[1])); }catch(e){} }
+  // つぎに localStorage
+  try{ const s=localStorage.getItem(SAVE_KEY); if(s) return JSON.parse(s); }catch(e){}
+  return null;
+}
+function hasSave(){ return !!readSave(); }
+function wipeSave(){
+  document.cookie = SAVE_KEY+'=;max-age=0;path=/';
+  try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
+}
+function applySave(s){
+  stage = s.stage||1;
+  maxStage = Math.max(s.maxStage||1, stage);
+  applyBiome();
+  Object.assign(player, s.player);
+  player.expNext = expToNext(player.lv); // カーブ調整を 既存セーブにも 即反映
+  Object.assign(story, s.story||{});
+  killCount = s.killCount||0;
+  npcTalked = !!s.npcTalked; bossDefeated = !!s.bossDefeated;
+  if(typeof s.startX==='number'){ startX=s.startX; startY=s.startY; gateX=s.gateX; gateY=s.gateY; }
+  if(s.map) map = s.map.map(r=>r.slice());
+  if(s.enemies){
+    mapEnemies = s.enemies.map(e=>({
+      x:e.x, y:e.y, px:e.x*TS, py:e.y*TS, type:e.type,
+      dir:'down', moving:false, frame:0, cool:rnd(20,80), stun:0, alive:e.alive
+    }));
+  } else { spawnMapEnemies(); }
+  if(s.hero){ hero.x=s.hero.x; hero.y=s.hero.y; hero.px=hero.x*TS; hero.py=hero.y*TS; hero.moving=false; }
+  if(s.playerSkin && SKINS.includes(s.playerSkin)) playerSkin = s.playerSkin;
+}
+function continueGame(){
+  const s = readSave();
+  if(!s){ startGame(); return; }
+  applySave(s);
+  battle=null;
+  state = STATE.OVERWORLD;
+}
+
+document.getElementById('rankingBtn').addEventListener('click', e=>{ e.stopPropagation(); openRanking(); });
+
+/* ---------- ステージ移動（クリア済みの章を 行ったり来たり） ---------- */
+const travelPanel = document.getElementById('travelPanel');
+let travelOpen = false;
+function openTravel(){
+  if(travelOpen || eventMode || state!==STATE.OVERWORLD) return;
+  travelOpen = true;
+  const list = document.getElementById('travelList');
+  let html='';
+  for(let n=1; n<=maxStage; n++){
+    const cur = (n===stage) ? ' cur' : '';
+    html += `<div class="travelItem${cur}" data-stage="${n}">第${n}章<b>${stageName(n)}</b>${n===stage?'（いまここ）':''}</div>`;
+  }
+  list.innerHTML = html;
+  list.querySelectorAll('.travelItem').forEach(el=>{
+    el.addEventListener('click', ()=>{ goToStage(parseInt(el.dataset.stage)); });
+  });
+  travelPanel.classList.remove('hidden');
+}
+function closeTravel(){ travelOpen=false; travelPanel.classList.add('hidden'); }
+function goToStage(n){
+  n = Math.max(1, Math.min(maxStage, n|0));
+  closeTravel();
+  stage = n;
+  player.hp=player.maxhp; player.mp=player.maxmp;
+  resetMapForStage(); // applyBiome + マップ再生成 + 敵配置 + bossDefeated/story リセット
+  killCount=0;
+  saveGame();
+  state = STATE.OVERWORLD;
+  refreshEventOverlay();
+}
+document.getElementById('travelBtn').addEventListener('click', e=>{ e.stopPropagation(); openTravel(); });
+document.getElementById('travelClose').addEventListener('click', closeTravel);
+
+/* ====================================================================
+   オンライン対戦（1対1 リアルタイム / HOST-RELAY 方式）
+   ホストが バトルを ローカルで進行し、ゲストの入力を サーバー中継で受け取る
+   ==================================================================== */
+let pvpWS=null, pvpRole=null, pvpRoomCode=null;
+let pvpOnlineOpen=false;     // ロビーパネルを開いている間はゲームをポーズ
+let pvpMode=false;           // 対戦バトル中
+let pvpOpponentData=null;    // 相手のステータス（ホスト視点ではゲストのフルステータス）
+let pvpGuestState=null;      // ゲスト視点の描画用ステート
+const onlinePanel=document.getElementById('onlinePanel');
+const onlineLobby=document.getElementById('onlineLobby');
+const onlineWaiting=document.getElementById('onlineWaiting');
+const pvpWaitOverlay=document.getElementById('pvpWaitOverlay');
+const pvpActionMenu=document.getElementById('pvpActionMenu');
+const pvpSkillArea=document.getElementById('pvpSkillArea');
+const pvpSkillSelect=document.getElementById('pvpSkillSelect');
+function omsg(t){ document.getElementById('onlineMsg').textContent=t||''; }
+
+function openOnline(){
+  pvpOnlineOpen=true;
+  onlinePanel.classList.remove('hidden');
+  onlineLobby.classList.remove('hidden');
+  onlineWaiting.classList.add('hidden');
+  document.getElementById('onlineJoinInput').value='';
+  document.getElementById('onlineCode').textContent='----';
+  omsg('');
+}
+function closeOnline(){
+  pvpOnlineOpen=false;
+  onlinePanel.classList.add('hidden');
+  if(!pvpMode && pvpWS){ try{ pvpWS.close(); }catch(_){ } pvpWS=null; }
+}
+function pvpWsUrl(){ return `${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws/battle`; }
+function pvpSendWS(obj){ if(pvpWS&&pvpWS.readyState===1) pvpWS.send(JSON.stringify(obj)); }
+function pvpRelay(payload){ pvpSendWS({type:'RELAY',payload}); }
+function pvpConnect(then){
+  if(pvpWS&&pvpWS.readyState===1){ then&&then(); return; }
+  omsg('せつぞく中…');
+  pvpWS=new WebSocket(pvpWsUrl());
+  pvpWS.onopen=()=>{ omsg(''); then&&then(); };
+  pvpWS.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(_){ return; } pvpOnMessage(m); };
+  pvpWS.onerror=()=>{ omsg('せつぞくに しっぱいしました'); };
+  pvpWS.onclose=()=>{ if(pvpMode) pvpOnOpponentLeft(); };
+}
+function pvpOnMessage(m){
+  switch(m.type){
+    case 'ROOM_CREATED':
+      pvpRoomCode=m.code; pvpRole='host';
+      onlineLobby.classList.add('hidden');
+      onlineWaiting.classList.remove('hidden');
+      document.getElementById('onlineCode').textContent=m.code;
+      break;
+    case 'MATCH_START':
+      pvpRole=m.role;
+      pvpMatchStart();
+      break;
+    case 'ERROR': omsg('⚠️ '+(m.text||'エラー')); break;
+    case 'RELAY': pvpOnRelay(m.payload); break;
+    case 'OPPONENT_LEFT': pvpOnOpponentLeft(); break;
+  }
+}
+// マッチ成立 → 自分のステータスを相手に送る
+function pvpMatchStart(){
+  omsg('');
+  const me={ name:player.name, lv:player.lv, hp:player.hp, maxhp:player.maxhp,
+             mp:player.mp, maxmp:player.maxmp, atk:player.atk, def:player.def };
+  pvpRelay({k:'PLAYER_DATA', data:me});
+}
+function pvpOnRelay(p){
+  if(!p) return;
+  switch(p.k){
+    case 'PLAYER_DATA':
+      if(pvpRole==='host') pvpHostStartBattle(p.data);
+      else pvpGuestStartBattle(p.data);
+      break;
+    case 'YOUR_TURN': pvpGuestShowActionMenu(); break;
+    case 'SYNC': pvpGuestApplySync(p); break;
+    case 'GUEST_ACTION': pvpApplyGuestAction(p); break;
+    case 'BATTLE_OVER': pvpOnBattleOver(p.winner); break;
+  }
+}
+
+/* ---------- ホスト側（フルバトル進行） ---------- */
+function pvpHostStartBattle(guestData){
+  pvpMode=true; pvpRole='host';
+  pvpOpponentData={ lv:guestData.lv, atk:guestData.atk, def:guestData.def,
+                    mp:guestData.mp, maxmp:guestData.maxmp, defending:false };
+  closeOnline();
+  // ゲストを「敵」として startBattle に渡す（スケーリングしない素のステータス）
+  const tpl={ n:guestData.name+'(P2)', face:'🎮', col:'#c98a3a',
+              hp:guestData.hp, maxhp:guestData.maxhp,
+              atk:guestData.atk, def:guestData.def, exp:0, gold:0, boss:false, pvp:true };
+  battle = {
+    enemy:tpl, menu:0, sub:null, subIdx:0,
+    log:['　'], turn:'player', anim:0, shake:0, flash:0, over:false,
+    playerHurt:0, enemyHurt:0, msgQ:[],
+    inputLockUntil: Date.now()+700,
+  };
+  state=STATE.BATTLE;
+  pushLog(`${tpl.n} との たいせん かいし！`);
+  pushLog('あなたの ターンから！');
+  pvpWaitOverlay.classList.add('hidden');
+}
+// 敵ターン（＝ゲストのターン）：ゲストに行動を要求して待つ
+function pvpHostEnemyTurn(){
+  if(!battle||battle.over) return;
+  pvpSyncToGuest();
+  pvpRelay({k:'YOUR_TURN'});
+  pvpWaitOverlay.classList.remove('hidden');
+}
+// ゲストの行動を ホストの世界に適用
+function pvpApplyGuestAction(p){
+  if(!battle||battle.over||pvpRole!=='host'||battle.turn!=='enemy') return; // 相手ターン中のみ受理
+  pvpWaitOverlay.classList.add('hidden');
+  const e=battle.enemy; // ゲスト
+  const od=pvpOpponentData;
+  if(p.action==='attack'){
+    const crit=Math.random()<0.18;
+    let dmg=Math.max(1, e.atk - player.def + rnd(-1,3));
+    if(crit) dmg=Math.floor(dmg*1.9);
+    pvpDamagePlayer(dmg, crit?`${e.n}の かいしんの いちげき！`:`${e.n}の こうげき！`);
+  } else if(p.action==='defend'){
+    e.guestDefending=true;
+    pushLog(`${e.n}は みをまもっている`);
+    pvpEndGuestTurn();
+  } else if(p.action==='item'){
+    e.hp=Math.min(e.maxhp, e.hp+20);
+    pushLog(`${e.n}は やくそうで かいふくした`);
+    pvpEndGuestTurn();
+  } else if(p.action==='skill'){
+    const sk=ALL_SKILLS[p.skillIdx];
+    // ホスト権威：レベル不足・MP不足のスキルは無効化（通常攻撃にフォールバック）
+    if(!sk || od.lv<sk.lv || od.mp<sk.mp){
+      const crit=Math.random()<0.18;
+      let dmg=Math.max(1, e.atk - player.def + rnd(-1,3));
+      if(crit) dmg=Math.floor(dmg*1.9);
+      pvpDamagePlayer(dmg, `${e.n}の こうげき！`);
+      return;
+    }
+    od.mp-=sk.mp;
+    if(sk.isHeal){
+      const h=sk.healLo+rnd(0,sk.healHi-sk.healLo);
+      e.hp=Math.min(e.maxhp, e.hp+h);
+      pushLog(`${e.n}の ${sk.name.replace(/ \(MP\d+\)/,'')}！ ${h} かいふく`);
+      pvpEndGuestTurn();
+    } else {
+      const dmg=Math.max(1, Math.floor(e.atk*sk.mult) - Math.floor(player.def*0.4) + rnd(0,3));
+      pvpDamagePlayer(dmg, `${e.n}の ${sk.name.replace(/ \(MP\d+\)/,'')}！`, sk.big);
+    }
+  }
+}
+function pvpDamagePlayer(dmg, msg, big){
+  pushLog(msg);
+  if(player.defending){ dmg=Math.floor(dmg/2); }
+  if(player.invincible){ dmg=0; }
+  player.hp-=dmg;
+  battle.playerHurt=16; battle.shake=10;
+  battle.msgQ.push(`${player.name}は ${dmg} ダメージ！`);
+  battle.anim=24;
+  setTimeout(()=>{
+    if(!battle) return;
+    if(battle.msgQ.length) pushLog(battle.msgQ.shift());
+    player.defending=false;
+    if(player.hp<=0){ loseBattle(); }
+    else pvpEndGuestTurn();
+  }, 420);
+}
+function pvpEndGuestTurn(){
+  if(!battle||battle.over) return;
+  battle.turn='player';
+  pvpSyncToGuest();
+}
+// ホストの状態を ゲストへ送信（ゲスト視点に変換）
+function pvpSyncToGuest(){
+  if(!battle) return;
+  const e=battle.enemy;
+  pvpRelay({k:'SYNC',
+    opp:{ name:player.name, lv:player.lv, hp:Math.max(0,player.hp), maxhp:player.maxhp, mp:player.mp, maxmp:player.maxmp },
+    me:{ name:e.n, lv:pvpOpponentData.lv, hp:Math.max(0,e.hp), maxhp:e.maxhp, mp:pvpOpponentData.mp, maxmp:pvpOpponentData.maxmp },
+    log: battle.log.slice(-2)
+  });
+}
+function pvpHostWin(){
+  pushLog(`${battle.enemy.n}に かった！`);
+  pvpRelay({k:'BATTLE_OVER', winner:'host'});
+  pvpShowResult(true);
+}
+function pvpHostLose(){
+  pvpRelay({k:'BATTLE_OVER', winner:'guest'});
+  pvpShowResult(false);
+}
+
+/* ---------- ゲスト側（UIのみ・ホストへ行動を送信） ---------- */
+function pvpGuestStartBattle(hostData){
+  pvpMode=true; pvpRole='guest';
+  closeOnline();
+  pvpGuestState={
+    me:{ name:player.name, lv:player.lv, hp:player.hp, maxhp:player.maxhp, mp:player.mp, maxmp:player.maxmp },
+    opp:{ name:hostData.name+'(P1)', lv:hostData.lv, hp:hostData.hp, maxhp:hostData.maxhp, mp:hostData.mp, maxmp:hostData.maxmp },
+    log:['たいせん かいし！','あいての ターン…'], myTurn:false, anim:0, shake:0, playerHurt:0, enemyHurt:0
+  };
+  state=STATE.PVP;
+  pvpActionMenu.classList.add('hidden');
+  pvpWaitOverlay.textContent='⏳ あいての ターン…';
+  pvpWaitOverlay.classList.remove('hidden');
+}
+function pvpGuestApplySync(p){
+  if(!pvpGuestState) return;
+  const prevMe=pvpGuestState.me.hp, prevOpp=pvpGuestState.opp.hp;
+  pvpGuestState.me=p.me; pvpGuestState.opp=p.opp; pvpGuestState.log=p.log||pvpGuestState.log;
+  if(p.me.hp<prevMe){ pvpGuestState.playerHurt=16; pvpGuestState.shake=10; }
+  if(p.opp.hp<prevOpp){ pvpGuestState.enemyHurt=16; }
+}
+function pvpGuestShowActionMenu(){
+  if(!pvpGuestState) return;
+  pvpGuestState.myTurn=true;
+  pvpWaitOverlay.classList.add('hidden');
+  pvpSkillArea.style.display='none';
+  // スキルセレクトを 自分のレベルで構築
+  pvpSkillSelect.innerHTML='';
+  ALL_SKILLS.forEach((s,i)=>{
+    if(pvpGuestState.me.lv>=s.lv){
+      const o=document.createElement('option');
+      o.value=i; o.textContent=s.name;
+      pvpSkillSelect.appendChild(o);
+    }
+  });
+  pvpActionMenu.classList.remove('hidden');
+}
+function pvpGuestSendAction(action, skillIdx){
+  if(!pvpGuestState||!pvpGuestState.myTurn) return;
+  pvpGuestState.myTurn=false;
+  pvpActionMenu.classList.add('hidden');
+  pvpWaitOverlay.textContent='⏳ あいての ターン…';
+  pvpWaitOverlay.classList.remove('hidden');
+  pvpRelay({k:'GUEST_ACTION', action, skillIdx});
+}
+
+/* ---------- 終了処理 ---------- */
+function pvpOnBattleOver(winner){
+  const iWon = (pvpRole===winner);
+  pvpShowResult(iWon);
+}
+function pvpShowResult(won){
+  pvpMode=false;
+  pvpActionMenu.classList.add('hidden');
+  pvpWaitOverlay.classList.add('hidden');
+  if(battle) battle.over=true;
+  setTimeout(()=>{
+    state=STATE.MODAL;
+    showModal(won?'🏆 対戦 しょうり！':'💀 対戦 はいぼく…',
+      won?'あいてに かった！ つよい！<br>すばらしい たたかいでした。':'あいてに まけてしまった…<br>つぎは かてるかな？',
+      ()=>{ pvpCleanup(); });
+  }, 500);
+}
+function pvpOnOpponentLeft(){
+  if(!pvpMode && !pvpOnlineOpen) return;
+  pvpMode=false;
+  pvpActionMenu.classList.add('hidden');
+  pvpWaitOverlay.classList.add('hidden');
+  if(pvpOnlineOpen){ omsg('⚠️ あいてが せつぞくを きりました'); return; }
+  if(battle) battle.over=true;
+  setTimeout(()=>{
+    state=STATE.MODAL;
+    showModal('対戦 ちゅうだん','あいてが たいせきしました。<br>バトルを しゅうりょうします。', ()=>{ pvpCleanup(); });
+  }, 300);
+}
+function pvpCleanup(){
+  pvpMode=false; pvpRole=null; pvpRoomCode=null; pvpOpponentData=null; pvpGuestState=null;
+  if(pvpWS){ try{ pvpWS.close(); }catch(_){ } pvpWS=null; }
+  battle=null;
+  state=STATE.OVERWORLD;
+}
+
+/* ---------- ゲスト画面の描画 ---------- */
+function drawPvpGuest(){
+  const gs=pvpGuestState;
+  if(!gs){ drawOverworld(); return; }
+  let sx=0,sy=0;
+  if(gs.shake>0){ sx=rnd(-gs.shake,gs.shake)/2; sy=rnd(-gs.shake,gs.shake)/2; gs.shake--; }
+  ctx.save(); ctx.translate(sx,sy);
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#1d2a3a'); g.addColorStop(1,'#0c141c');
+  ctx.fillStyle=g; ctx.fillRect(-10,-10,W+20,H+20);
+  ctx.fillStyle='#1a2430'; ctx.fillRect(0,180,W,90);
+  // 相手（ホスト）＝敵 中央うえ
+  const ex=300;
+  const eShake = gs.enemyHurt>0 ? rnd(-3,3):0;
+  ctx.save(); ctx.translate(ex+eShake,118);
+  const c = (gs.enemyHurt>0 && frameTick%4<2) ? '#fff' : '#c98a3a';
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0,44,34,7,0,0,7); ctx.fill();
+  ctx.fillStyle=c; ctx.beginPath(); ctx.ellipse(0,0,32,28,0,0,7); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('🎮',0,6);
+  ctx.restore();
+  if(gs.enemyHurt>0) gs.enemyHurt--;
+  ctx.fillStyle='#fff'; ctx.font='bold 13px sans-serif'; ctx.textAlign='center';
+  ctx.fillText(`${gs.opp.name} Lv${gs.opp.lv}`, ex, 46);
+  bar(ex-62,54,124,9, gs.opp.hp/gs.opp.maxhp, '#e8493a');
+  ctx.fillStyle='#cdbfa0'; ctx.font='10px sans-serif';
+  ctx.fillText(`HP ${Math.max(0,gs.opp.hp)}/${gs.opp.maxhp}`, ex, 76);
+  // 自分（ゲスト）＝左に カピバラ
+  const pHurtX = gs.playerHurt>0 ? rnd(-3,3):0;
+  drawCapyBattle(16+pHurtX, 116, 152);
+  if(gs.playerHurt>0) gs.playerHurt--;
+  // 自分ステータス（左上）
+  ctx.fillStyle='rgba(20,14,28,.85)'; ctx.fillRect(8,8,176,58);
+  ctx.strokeStyle='#4caa4c'; ctx.lineWidth=1; ctx.strokeRect(8,8,176,58);
+  ctx.textAlign='left'; ctx.fillStyle='#fff'; ctx.font='bold 13px sans-serif';
+  ctx.fillText(`${gs.me.name}  Lv${gs.me.lv}`, 14, 24);
+  bar(14,30,150,8, gs.me.hp/gs.me.maxhp, '#e8493a');
+  ctx.fillStyle='#fff'; ctx.font='10px sans-serif';
+  ctx.fillText(`HP ${Math.max(0,gs.me.hp)}/${gs.me.maxhp}`, 16, 38);
+  bar(14,44,150,8, gs.me.mp/gs.me.maxmp, '#3aa0e8');
+  ctx.fillText(`MP ${gs.me.mp}/${gs.me.maxmp}`, 16, 52);
+  // ログ
+  ctx.fillStyle='rgba(10,6,16,.9)'; ctx.fillRect(8,252,W-16,60);
+  ctx.strokeStyle='#4caa4c'; ctx.strokeRect(8,252,W-16,60);
+  ctx.fillStyle='#fff'; ctx.font='13px sans-serif'; ctx.textAlign='left';
+  (gs.log||[]).slice(-2).forEach((l,i)=> ctx.fillText(l, 18, 274+i*18));
+  ctx.restore();
+}
+
+// ---- ロビー / 対戦 ボタンの イベント ----
+document.getElementById('onlineBtn').addEventListener('click', e=>{ e.stopPropagation(); openOnline(); });
+document.getElementById('onlineClose').addEventListener('click', ()=>{ closeOnline(); });
+document.getElementById('onlineCreateBtn').addEventListener('click', ()=>{
+  pvpConnect(()=>{ omsg('部屋を作成中…'); pvpSendWS({type:'CREATE_ROOM'}); });
+});
+document.getElementById('onlineJoinBtn').addEventListener('click', ()=>{
+  const code=(document.getElementById('onlineJoinInput').value||'').trim().toUpperCase();
+  if(code.length!==4){ omsg('4文字の コードを いれてね'); return; }
+  pvpConnect(()=>{ omsg('にゅうしつ中…'); pvpSendWS({type:'JOIN_ROOM', code}); });
+});
+// ---- ゲストの 行動ボタン ----
+document.getElementById('pvpAtk').addEventListener('click', ()=>pvpGuestSendAction('attack'));
+document.getElementById('pvpDef').addEventListener('click', ()=>pvpGuestSendAction('defend'));
+document.getElementById('pvpItem').addEventListener('click', ()=>pvpGuestSendAction('item'));
+document.getElementById('pvpSkillBtn').addEventListener('click', ()=>{ pvpSkillArea.style.display='block'; });
+document.getElementById('pvpSkillBack').addEventListener('click', ()=>{ pvpSkillArea.style.display='none'; });
+document.getElementById('pvpSkillOk').addEventListener('click', ()=>{
+  const idx=parseInt(pvpSkillSelect.value,10);
+  if(isNaN(idx)) return;
+  const sk=ALL_SKILLS[idx];
+  if(sk && pvpGuestState && pvpGuestState.me.mp<sk.mp){ return; } // MPたりない
+  if(sk && pvpGuestState){
+    if(pvpGuestState.me.mp>=sk.mp) pvpGuestState.me.mp-=sk.mp;
+  }
+  pvpSkillArea.style.display='none';
+  pvpGuestSendAction('skill', idx);
+});
+
+/* ====================================================================
+   管理者チート
+   ==================================================================== */
+const cheatEl = document.getElementById('cheat');
+let cheatOpen = false;
+let adminUnlocked = false;
+const ADMIN_PASS = 'tkhr0422';
+function toggleCheat(force){
+  if(!adminUnlocked) return; // 認証していないと 開けない
+  cheatOpen = (force!==undefined)? force : !cheatOpen;
+  cheatEl.classList.toggle('hidden', !cheatOpen);
+  updateCheatUI();
+}
+// コンソール認証で 管理者モードを 解除する
+function unlockAdmin(){
+  if(adminUnlocked) return '🔓 すでに 管理者モードです';
+  adminUnlocked = true;
+  document.getElementById('cheatBtn').classList.remove('hidden');
+  toggleCheat(true);
+  return '🔓 管理者モード解除！ 左上の「⚙ 管理者」ボタン、または「 ` 」キーで開けます';
+}
+// コンソールで  admin('tkhr0422')  または  admin.tkhr0422  と入力
+function makeAdmin(){
+  const fn = function(pass){
+    if(String(pass)===ADMIN_PASS) return unlockAdmin();
+    return '❌ パスワードが ちがいます';
+  };
+  // admin.tkhr0422 でも 解除できるように
+  Object.defineProperty(fn, ADMIN_PASS, { get:unlockAdmin });
+  return fn;
+}
+window.admin = makeAdmin();
+function updateCheatUI(){
+  const inv=document.getElementById('cheatInv');
+  if(inv){ inv.textContent='無敵モード: '+(player.invincible?'ON':'OFF'); inv.classList.toggle('on',player.invincible); }
+}
+function cheatMsg(t){ const m=document.getElementById('cheatMsg'); if(m){ m.textContent=t; } }
+function doCheat(c){
+  switch(c){
+    case 'heal': player.hp=player.maxhp; player.mp=player.maxmp; cheatMsg('HP/MP 全回復！'); break;
+    case 'gold': player.gold+=1000; cheatMsg('ゴールド +1000！'); break;
+    case 'lv':
+      for(let i=0;i<5;i++){ player.lv++; player.maxhp+=4; player.maxmp+=2; player.atk+=2; player.def+=1; player.expNext=expToNext(player.lv); }
+      player.hp=player.maxhp; player.mp=player.maxmp; cheatMsg('レベル +5！ いまLv'+player.lv); break;
+    case 'god':
+      player.maxhp=999; player.maxmp=999; player.hp=999; player.mp=999; player.atk=120; player.def=80;
+      cheatMsg('最強ステータスに なった！'); break;
+    case 'items': player.potions=99; player.ether=99; cheatMsg('どうぐ満タン！'); break;
+    case 'atk': player.atk+=10; cheatMsg('攻撃力 +10！ いまATK'+player.atk); break;
+    case 'inv': player.invincible=!player.invincible; cheatMsg('無敵 '+(player.invincible?'ON':'OFF')); break;
+    case 'warp':
+      // ボスの門の となり(道)へ
+      hero.x=16; hero.y=12; hero.px=hero.x*TS; hero.py=hero.y*TS; hero.moving=false;
+      story.cave=true; toggleCheat(false); cheatMsg(''); break;
+    case 'clear':
+      mapEnemies.forEach(e=>e.alive=false); cheatMsg('マップの敵を 全滅させた！'); break;
+    case 'respawn':
+      spawnMapEnemies(); cheatMsg('敵を 復活させた！'); break;
+    case 'kill':
+      if(state===STATE.BATTLE && battle && !battle.over){
+        if(!battle.enemy.boss) killCount++;
+        battle.enemy.hp=0; winBattle(); toggleCheat(false); cheatMsg('');
+      } else { cheatMsg('バトル中だけ つかえます'); }
+      break;
+    case 'save': cheatMsg(saveGame()?'セーブしました（Cookie）':'セーブ失敗…'); break;
+    case 'load':
+      if(hasSave()){ continueGame(); toggleCheat(false); } else cheatMsg('セーブデータが ありません'); break;
+    case 'wipe': wipeSave(); cheatMsg('セーブを 削除しました'); break;
+    case 'setlv': {
+      const v = parseInt(document.getElementById('cheatLvInput').value);
+      if(!v || v < 1 || v > 999){ cheatMsg('1〜999 の数値を 入力してください'); break; }
+      const diff = v - player.lv;
+      player.lv = v;
+      player.maxhp += diff * 8; player.hp = player.maxhp;
+      player.maxmp += diff * 2; player.mp = player.maxmp;
+      if(diff > 0){ player.atk += diff * 2; player.spd = Math.min(12, player.spd + Math.floor(diff/5)); }
+      saveGame(); cheatMsg('Lv ' + v + ' に なった！'); break;
+    }
+    case 'rankreset':
+      if(!confirm('ランキングを 全リセット しますか？')) break;
+      fetch('/api/ranking/reset', { method:'POST', headers:{'x-admin-action':'ranking-reset'} })
+        .then(r=>r.json()).then(d=>{
+          if(d.ok){ registeredName=null; localStorage.removeItem(RANK_NAME_KEY); cheatMsg('ランキングを リセットしました'); }
+          else cheatMsg('リセット失敗');
+        })
+        .catch(()=>cheatMsg('通信エラー'));
+      break;
+    case 'ev-stage-start': adminSetStage(); break;
+    case 'ev-stage-stop': adminStopStage(); break;
+    case 'ev-xp-2':  adminSetXp(2);  break;
+    case 'ev-xp-4':  adminSetXp(4);  break;
+    case 'ev-xp-8':  adminSetXp(8);  break;
+    case 'ev-xp-10': adminSetXp(10); break;
+    case 'ev-xp-20': adminSetXp(20); break;
+    case 'ev-xp-stop': adminStopXp(); break;
+    case 'pc-apply': adminPlayerCmd(); break;
+    case 'pc-clear': adminPlayerCmdClear(); break;
+    case 'skin-default': playerSkin='default'; saveGame(); cheatMsg('🐾 カピバラに もどった！'); break;
+    case 'skin-nagaimo':  playerSkin='nagaimo';  saveGame(); cheatMsg('🥔 長芋に へんしん！'); break;
+    case 'skin-mage':     playerSkin='mage';     saveGame(); cheatMsg('🧙 魔法使いに へんしん！'); break;
+  }
+  updateCheatUI();
+  if(['heal','gold','lv','god','items','atk','clear'].includes(c)) saveGame();
+}
+// 配線
+document.getElementById('cheatBtn').addEventListener('click',()=>toggleCheat(true));
+document.getElementById('cheatClose').addEventListener('click',()=>toggleCheat(false));
+cheatEl.addEventListener('click',e=>{ if(e.target===cheatEl) toggleCheat(false); });
+document.querySelectorAll('#cheatBox .cheatGrid button').forEach(b=>{
+  b.addEventListener('click',()=>doCheat(b.dataset.c));
+});
+window.addEventListener('keydown',e=>{
+  if(e.key==='`' || e.code==='Backquote' || e.key==='Zenkaku' || e.key==='Hankaku'){
+    e.preventDefault(); toggleCheat();
+  }
+});
+
+/* ====================================================================
+   イベント（期間限定ステージ / 経験値イベント）— サーバー共有で全端末に反映
+   ==================================================================== */
+let eventCfg = { stage:{active:false}, xp:{mult:1, until:0} };
+let eventMode = false;       // いま イベントステージの 中か
+let eventReturn = null;      // 復帰用スナップショット
+let eventEnemyTpl = null, eventBossTpl = null;
+let eventCleared = false;
+
+function currentXpMult(){
+  if(eventCfg && eventCfg.xp && eventCfg.xp.mult>1 && eventCfg.xp.until>Date.now()) return eventCfg.xp.mult;
+  return 1;
+}
+function fmtTime(ms){
+  if(ms<0) ms=0;
+  const s=Math.floor(ms/1000), h=Math.floor(s/3600), m=Math.floor((s%3600)/60), ss=s%60;
+  const p=n=>String(n).padStart(2,'0');
+  return h>0 ? `${h}:${p(m)}:${p(ss)}` : `${p(m)}:${p(ss)}`;
+}
+async function fetchEventState(){
+  try{
+    const r = await fetch('/api/event', { cache:'no-store' });
+    if(r.ok){ eventCfg = await r.json(); refreshEventOverlay(); }
+  }catch(e){}
+}
+function refreshEventOverlay(){
+  const now = Date.now();
+  // 右下：経験値イベントバッジ
+  const xpOn = eventCfg.xp && eventCfg.xp.mult>1 && eventCfg.xp.until>now;
+  const badge = document.getElementById('eventBadge');
+  if(xpOn){
+    badge.innerHTML = `⚡ 経験値 ×${eventCfg.xp.mult} イベント<span>のこり ${fmtTime(eventCfg.xp.until-now)}</span>`;
+    badge.classList.remove('hidden');
+  } else badge.classList.add('hidden');
+  // 上部：イベントステージ ボタン / 復帰ボタン
+  const stageOn = eventCfg.stage && eventCfg.stage.active && (!eventCfg.stage.until || eventCfg.stage.until>now);
+  const sBtn = document.getElementById('eventStageBtn');
+  const rBtn = document.getElementById('eventReturnBtn');
+  const inPlay = (state===STATE.OVERWORLD);
+  if(eventMode){
+    sBtn.classList.add('hidden');
+    rBtn.classList.toggle('hidden', !inPlay);
+  } else {
+    rBtn.classList.add('hidden');
+    sBtn.classList.toggle('hidden', !(stageOn && inPlay));
+  }
+  // ステージ移動ボタン：通常ぼうけん中で クリア済みの章が あるときだけ 表示
+  const tBtn = document.getElementById('travelBtn');
+  tBtn.classList.toggle('hidden', !(inPlay && !eventMode && maxStage>1));
+}
+
+function enterEventStage(){
+  if(eventMode) return;
+  if(!(eventCfg.stage && eventCfg.stage.active)) return;
+  const s = eventCfg.stage;
+  // 通常ぼうけんの 状態を 退避（プレイヤーの レベル/ゴールドは そのまま 持ち越し）
+  eventReturn = {
+    stage, map: map.map(r=>r.slice()),
+    startX, startY, gateX, gateY,
+    hero:{x:hero.x, y:hero.y},
+    enemies: mapEnemies.map(e=>({x:e.x,y:e.y,type:e.type,alive:e.alive})),
+    bossDefeated, cave:story.cave, bossIntro:story.bossIntro,
+    tint:stageTint, tint2:stageTint2,
+  };
+  eventMode = true; eventCleared = false;
+  eventEnemyTpl = { n:(s.name? s.name+'の敵':'イベントの敵'),
+    hp:s.enemy.hp, maxhp:s.enemy.hp, atk:s.enemy.atk, def:s.enemy.def,
+    exp:s.enemy.exp, gold:s.enemy.gold, col:'#c879ff', face:'(•̀ᴗ•́)' };
+  eventBossTpl = { n:(s.bossName ? s.bossName : (s.name? s.name+'ボス':'イベントボス')),
+    hp:s.boss.hp, maxhp:s.boss.hp, atk:s.boss.atk, def:s.boss.def,
+    exp:s.boss.exp, gold:s.boss.gold, col:'#ff5ea8', face:'( ▼皿▼)', boss:true };
+  // 専用マップを 生成（配置は 自動・ボス門あり）
+  map = generateMap();
+  story.cave = true; story.bossIntro = true; // イベント中は 章ストーリーを 出さない
+  bossDefeated = false;
+  hero.x=startX; hero.y=startY; hero.px=hero.x*TS; hero.py=hero.y*TS; hero.moving=false;
+  spawnMapEnemies();
+  stageTint='#7a3fa0'; stageTint2='#9c5fc0';
+  state = STATE.OVERWORLD;
+  refreshEventOverlay();
+}
+function exitEventStage(){
+  if(!eventMode){ refreshEventOverlay(); return; }
+  const r = eventReturn;
+  eventMode = false; eventReturn = null;
+  if(r){
+    stage = r.stage; map = r.map.map(row=>row.slice());
+    startX=r.startX; startY=r.startY; gateX=r.gateX; gateY=r.gateY;
+    applyBiome(); stageTint=r.tint; stageTint2=r.tint2;
+    hero.x=r.hero.x; hero.y=r.hero.y; hero.px=hero.x*TS; hero.py=hero.y*TS; hero.moving=false;
+    mapEnemies = r.enemies.map(e=>({ x:e.x, y:e.y, px:e.x*TS, py:e.y*TS, type:e.type,
+      dir:'down', moving:false, frame:0, cool:rnd(20,80), stun:0, alive:e.alive }));
+    bossDefeated=r.bossDefeated; story.cave=r.cave; story.bossIntro=r.bossIntro;
+  }
+  state = STATE.OVERWORLD;
+  saveGame();
+  refreshEventOverlay();
+}
+
+/* ---- 管理者：イベント設定の 反映 ---- */
+function postEvent(body, okMsg){
+  fetch('/api/event', { method:'POST',
+    headers:{ 'content-type':'application/json', 'x-admin-action':'event-write' },
+    body: JSON.stringify(body) })
+    .then(r=>r.json()).then(d=>{
+      if(d.ok){ eventCfg=d.state; cheatMsg(okMsg); refreshEventOverlay(); }
+      else cheatMsg('反映 失敗');
+    })
+    .catch(()=>cheatMsg('通信エラー'));
+}
+function adminSetStage(){
+  const num=(id,def)=>{ const v=parseInt(document.getElementById(id).value); return (Number.isFinite(v)&&v>=0)?v:def; };
+  postEvent({
+    action:'setStage',
+    name: document.getElementById('evName').value.trim().slice(0,30),
+    bossName: document.getElementById('evBossName').value.trim().slice(0,30),
+    enemy:{ hp:num('evEnemyHp',100), atk:num('evEnemyAtk',20), def:num('evEnemyDef',10), exp:num('evEnemyExp',50), gold:num('evEnemyGold',30) },
+    boss:{  hp:num('evBossHp',800),  atk:num('evBossAtk',45),  def:num('evBossDef',20),  exp:num('evBossExp',500), gold:num('evBossGold',300) },
+    minutes: num('evMinutes',60),
+  }, '🎪 期間限定ステージを 反映しました！（全端末）');
+}
+function adminStopStage(){ postEvent({ action:'stopStage' }, '期間限定ステージを 終了しました'); }
+function adminSetXp(mult){
+  const v=parseInt(document.getElementById('evXpMinutes').value);
+  const minutes=(Number.isFinite(v)&&v>0)?v:60;
+  postEvent({ action:'setXp', mult, minutes }, `⚡ 経験値×${mult}イベントを 開始！（${minutes}分・全端末）`);
+}
+function adminStopXp(){ postEvent({ action:'stopXp' }, '経験値イベントを 止めました'); }
+
+/* ---------- プレイヤー遠隔操作（管理者がランキング名で指定） ---------- */
+const CMD_KEY = 'capyquest_lastcmd';
+// レベルを 指定値に セット（いまの レベルアップ上昇量と そろえて 計算）
+function setPlayerLevelTo(v){
+  v = Math.max(1, Math.min(999, v|0));
+  const diff = v - player.lv;
+  player.lv = v;
+  player.maxhp = Math.max(1, player.maxhp + diff*4);
+  player.maxmp = Math.max(0, player.maxmp + diff*2);
+  player.atk   = Math.max(1, player.atk   + diff*2);
+  player.def   = Math.max(0, player.def   + diff*1);
+  player.hp = player.maxhp; player.mp = player.maxmp;
+  player.exp = 0; player.expNext = expToNext(player.lv);
+}
+// 進行（章）を 指定値に セット。先に進める場合は 解放範囲も のばす
+function setPlayerStageTo(n){
+  n = Math.max(1, Math.min(MAX_STAGE, n|0));
+  stage = n;
+  if(n > maxStage) maxStage = n;
+  player.hp = player.maxhp; player.mp = player.maxmp;
+  resetMapForStage();
+  killCount = 0;
+}
+// 対象端末側：自分宛ての指令を ポーリングして 安全なときだけ 適用
+async function fetchPlayerCmd(){
+  if(!registeredName) return;
+  if(state !== STATE.OVERWORLD || eventMode) return; // バトル中/イベント中/タイトルでは 適用しない
+  let cmd;
+  try{
+    const res = await fetch('/api/playercmd?name='+encodeURIComponent(registeredName), { cache:'no-store' });
+    if(!res.ok) return;
+    cmd = await res.json();
+  }catch(e){ return; }
+  if(!cmd || !cmd.id) return;
+  const key = CMD_KEY + ':' + registeredName; // 登録名ごとに 適用済みID を 分けて持つ
+  const last = parseInt(localStorage.getItem(key) || '0') || 0;
+  if(cmd.id <= last) return;
+  // 適用直前に もう一度 状態を確認（fetch中に バトルへ 入った可能性）
+  if(state !== STATE.OVERWORLD || eventMode) return;
+  let msg = '';
+  if(typeof cmd.level === 'number' && cmd.level > 0){
+    setPlayerLevelTo(cmd.level);
+    msg += `レベルが <b>${player.lv}</b> に なった！<br>`;
+  }
+  if(typeof cmd.stage === 'number' && cmd.stage > 0){
+    setPlayerStageTo(cmd.stage);
+    msg += `第${stage}章「<b>${stageName(stage)}</b>」に いどうした！<br>`;
+  }
+  if(cmd.skin && SKINS.includes(cmd.skin)){
+    playerSkin = cmd.skin;
+    const skinLabel = {default:'カピバラ', nagaimo:'🥔 長芋', mage:'🧙 魔法使い'}[cmd.skin] || cmd.skin;
+    msg += `みためが <b>${skinLabel}</b> に かわった！<br>`;
+  }
+  localStorage.setItem(key, String(cmd.id));
+  if(!msg) return;
+  saveGame();
+  // ランキングも 最新の レベルに そろえる（あれば）
+  fetch('/api/ranking', {
+    method:'PUT', headers:{'content-type':'application/json'},
+    body: JSON.stringify({ name: registeredName, level: player.lv, gold: player.gold, kill_count: killCount })
+  }).catch(()=>{});
+  state = STATE.MODAL;
+  showModal('📡 かんりしゃ からの しれい', msg + 'りょうかい！', ()=>{ state = STATE.OVERWORLD; });
+}
+// 管理者側：指令をセット
+function adminPlayerCmd(){
+  const name = document.getElementById('pcName').value.trim().slice(0,20);
+  if(!name){ cheatMsg('ランキング名を 入力してください'); return; }
+  const lvRaw = document.getElementById('pcLevel').value.trim();
+  const stRaw = document.getElementById('pcStage').value.trim();
+  const skRaw = document.getElementById('pcSkin').value;
+  const body = { name };
+  if(lvRaw !== ''){ const lv = parseInt(lvRaw); if(Number.isFinite(lv) && lv>=1 && lv<=999) body.level = lv; else { cheatMsg('レベルは 1〜999 で'); return; } }
+  if(stRaw !== ''){ const st = parseInt(stRaw); if(Number.isFinite(st) && st>=1 && st<=MAX_STAGE) body.stage = st; else { cheatMsg(`ステージは 1〜${MAX_STAGE} で`); return; } }
+  if(skRaw) body.skin = skRaw;
+  if(body.level === undefined && body.stage === undefined && body.skin === undefined){ cheatMsg('レベル、ステージ、または みためを 指定してください'); return; }
+  fetch('/api/playercmd', { method:'POST', headers:{'content-type':'application/json','x-admin-action':'player-cmd'}, body: JSON.stringify(body) })
+    .then(r=>r.json()).then(d=>{
+      if(d.ok) cheatMsg(`📡「${name}」に しれいを セット！（相手の 端末で 反映されます）`);
+      else if(d.error==='not found') cheatMsg(`「${name}」は ランキングに いません`);
+      else cheatMsg('反映 失敗');
+    }).catch(()=>cheatMsg('通信エラー'));
+}
+function adminPlayerCmdClear(){
+  const name = document.getElementById('pcName').value.trim().slice(0,20);
+  if(!name){ cheatMsg('ランキング名を 入力してください'); return; }
+  fetch('/api/playercmd', { method:'POST', headers:{'content-type':'application/json','x-admin-action':'player-cmd'}, body: JSON.stringify({ name, action:'clear' }) })
+    .then(r=>r.json()).then(d=>{ cheatMsg(d.ok ? `「${name}」への しれいを 取り消しました` : '取り消し 失敗'); })
+    .catch(()=>cheatMsg('通信エラー'));
+}
+
+// 配線：イベントボタン
+document.getElementById('eventStageBtn').addEventListener('click', enterEventStage);
+document.getElementById('eventReturnBtn').addEventListener('click', exitEventStage);
+// 起動時に 取得 → 以後 20秒ごとに 同期、表示は 0.5秒ごとに 更新
+fetchEventState();
+setInterval(fetchEventState, 20000);
+setInterval(refreshEventOverlay, 500);
+// プレイヤー遠隔指令の ポーリング（登録名がある端末のみ・安全なときだけ適用）
+setInterval(fetchPlayerCmd, 8000);
+
+/* ====================================================================
+   メインループ
+   ==================================================================== */
+let frameTick=0;
+let saveExists=false;
+function drawCurrent(){
+  if(state===STATE.PVP) drawPvpGuest();
+  else if(state===STATE.BATTLE || (state===STATE.MODAL && battle)) drawBattle();
+  else if(state===STATE.WIN) drawWin();
+  else drawOverworld();
+}
+function loop(){
+  frameTick++;
+  // チートを開いている間はゲームをポーズ（描画のみ）
+  if(cheatOpen || rankingOpen || pvpOnlineOpen || travelOpen){
+    for(const k in pressed) pressed[k]=false; // パネル操作中の入力は ゲームに渡さない
+    if(state!==STATE.TITLE) drawCurrent();
+    requestAnimationFrame(loop); return;
+  }
+  if(state===STATE.TITLE){
+    titleEl.classList.remove('hidden');
+    if(consume('n')||consume('N')){ startGame(); }
+    else if(consume('Enter')||consume('z')||consume('Z')||consume(' ')){ saveExists?continueGame():startGame(); }
+  } else {
+    titleEl.classList.add('hidden');
+  }
+
+  if(state===STATE.OVERWORLD){
+    overworldUpdate(); drawOverworld();
+    if(frameTick%300===0) saveGame(); // 5秒ごとに オートセーブ
+  }
+  else if(state===STATE.BATTLE){ battleInput(); drawBattle(); }
+  else if(state===STATE.MODAL){
+    // 直前の画面を保持して描画
+    if(battle) drawBattle(); else drawOverworld();
+    // Enter / Z で ダイアログを すすめる
+    if(consume('Enter')||consume('z')||consume('Z')||consume(' ')){
+      const b=document.getElementById('modalBtn');
+      if(b && !modalEl.classList.contains('hidden')) b.click();
+    }
+  }
+  else if(state===STATE.WIN){
+    drawWin();
+    if(consume('Enter')||consume('z')||consume('Z')||consume(' ')){
+      if(!creditDone){ creditDone=true; } else { openRanking(); }
+    }
+  }
+  else if(state===STATE.PVP){ drawPvpGuest(); }
+  requestAnimationFrame(loop);
+}
+function startGame(){
+  stage=1; maxStage=1; applyBiome();
+  spawnMapEnemies();
+  showStory(PROLOGUE, ()=>{ state=STATE.OVERWORLD; saveGame(); });
+}
+// タイトル/勝利でクリックでも進む
+cv.addEventListener('click',()=>{
+  if(state===STATE.TITLE) (saveExists?continueGame():startGame());
+  else if(state===STATE.WIN){
+    if(!creditDone){ creditDone=true; } else { openRanking(); }
+  }
+});
+titleEl.addEventListener('click',()=>{ if(state===STATE.TITLE) (saveExists?continueGame():startGame()); });
+
+/* ====================================================================
+   世界ランキング
+   ==================================================================== */
+const rankingPanel = document.getElementById('rankingPanel');
+let rankingOpen = false;
+let rankSubmitted = false;
+const RANK_NAME_KEY = 'capyquest_rankname';
+let registeredName = localStorage.getItem(RANK_NAME_KEY) || null; // ページをまたいで保持
+
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function fetchRanking(){
+  const list = document.getElementById('rankList');
+  list.textContent = '読み込み中…';
+  try {
+    const res = await fetch('/api/ranking');
+    const data = await res.json();
+    if(!data.length){ list.innerHTML = '<span style="color:#9a8fb0;font-size:12px;">まだ 登録者が いません</span>'; return; }
+    list.innerHTML = data.map((r,i) => `
+      <div class="rankRow">
+        <span class="rankNum">${i+1}</span>
+        <span class="rankName" style="font-weight:${i<3?'700':'400'}">${['🥇','🥈','🥉'][i]||''} ${escHtml(r.name)}</span>
+        <span class="rankLv">Lv${r.level}</span>
+        <span class="rankG">${r.gold}G</span>
+      </div>
+    `).join('');
+  } catch(e) {
+    list.innerHTML = '<span style="color:#f08070;font-size:12px;">通信エラー</span>';
+  }
+}
+
+function openRanking(){
+  if(rankingOpen) return;
+  rankingOpen = true;
+  rankSubmitted = false;
+  const isWin = state === STATE.WIN;
+  document.getElementById('rankSub').textContent = isWin
+    ? 'ぜん45章クリア おめでとう！ 記念に登録しよう'
+    : `現在 Lv${player.lv}・${player.gold}G・${killCount}体撃破`;
+  document.getElementById('rankRestart').style.display = isWin ? '' : 'none';
+  document.getElementById('rankContinue').textContent = isWin ? '🎮 つづける' : 'とじる';
+  const nameInput = document.getElementById('rankName');
+  const submitBtn = document.getElementById('rankSubmit');
+  const msg = document.getElementById('rankMsg');
+  if(registeredName){
+    // 登録済み → 更新モードで開く
+    nameInput.value = registeredName;
+    nameInput.disabled = true;
+    submitBtn.textContent = '更新する';
+    submitBtn.disabled = false;
+    msg.style.color = '#9a8fb0';
+    msg.textContent = 'レベルアップしたら「更新する」で反映できます';
+  } else {
+    nameInput.value = '';
+    nameInput.disabled = false;
+    submitBtn.textContent = '登録する';
+    submitBtn.disabled = false;
+    msg.textContent = '';
+  }
+  rankingPanel.classList.remove('hidden');
+  fetchRanking();
+}
+function closeRanking(){ rankingOpen=false; rankingPanel.classList.add('hidden'); }
+
+document.getElementById('rankSubmit').addEventListener('click', async ()=>{
+  if(rankSubmitted) return;
+  rankSubmitted = true;
+  const nameInput = document.getElementById('rankName');
+  const submitBtn = document.getElementById('rankSubmit');
+  const msg = document.getElementById('rankMsg');
+  msg.style.color = '#8ec06c';
+
+  if(registeredName){
+    // ── 更新モード ──
+    msg.textContent = '更新中…';
+    try {
+      const res = await fetch('/api/ranking', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: registeredName, level: player.lv, gold: player.gold, kill_count: killCount })
+      });
+      if(res.ok){
+        msg.textContent = '✅ スコアを 更新しました！';
+        fetchRanking();
+      } else {
+        msg.style.color = '#f08070';
+        msg.textContent = '更新に 失敗しました';
+      }
+    } catch(e){
+      msg.style.color = '#f08070';
+      msg.textContent = '通信エラー';
+    }
+    rankSubmitted = false;
+  } else {
+    // ── 新規登録モード ──
+    const name = (nameInput.value || 'なぞのカピ').trim().slice(0,12) || 'なぞのカピ';
+    msg.textContent = '送信中…';
+    try {
+      const res = await fetch('/api/ranking', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name, level: player.lv, gold: player.gold, kill_count: killCount })
+      });
+      if(res.ok){
+        msg.textContent = '🎉 登録しました！レベルアップしたら「更新する」で反映できます';
+        registeredName = name;
+        localStorage.setItem(RANK_NAME_KEY, name);
+        nameInput.value = name;
+        nameInput.disabled = true;
+        submitBtn.textContent = '更新する';
+        rankSubmitted = false;
+        fetchRanking();
+      } else if(res.status === 409){
+        msg.style.color = '#f08070';
+        msg.textContent = 'この名前は すでに 登録されています。別の名前を えらんでください';
+        rankSubmitted = false;
+      } else {
+        msg.style.color = '#f08070';
+        msg.textContent = '登録に 失敗しました';
+        rankSubmitted = false;
+      }
+    } catch(e){
+      msg.style.color = '#f08070';
+      msg.textContent = '通信エラー';
+      rankSubmitted = false;
+    }
+  }
+});
+
+document.getElementById('rankContinue').addEventListener('click', ()=>{
+  const wasWin = state === STATE.WIN;
+  closeRanking();
+  if(wasWin){ state = STATE.OVERWORLD; saveGame(); }
+});
+
+document.getElementById('rankRestart').addEventListener('click', ()=>{
+  closeRanking();
+  wipeSave();
+  startGame(); // stage/maxStage を まとめて 初期化（進行リセットの 一本化）
+});
+
+// ランキングパネルの外側クリックで閉じない（必ずボタンで選択させる）
+
+// オープニング
+window.addEventListener('load',()=>{
+  saveExists = hasSave();
+  const hint=document.getElementById('startHint');
+  if(saveExists && hint){ hint.innerHTML='クリック / Enter で <b>つづきから</b>　／　N で さいしょから'; }
+  loop();
+});
+</script>
+</body>
+</html>

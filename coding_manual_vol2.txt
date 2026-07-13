@@ -1,0 +1,2422 @@
+================================================================
+  コーディング完全マニュアル 第2巻
+  より深く・より詳しく・より実践的に
+================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 1: 計算機科学の深層
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 二進数・ビット演算を完全理解する
+
+  10進数 → 2進数の変換
+    13 = 8+4+1 = 1101(2)
+    255 = 11111111(2) = 0xFF(16進)
+
+  ビット演算の仕組みと使い方:
+    AND (&):  0b1100 & 0b1010 = 0b1000  ← 共通ビット抽出
+    OR  (|):  0b1100 | 0b1010 = 0b1110  ← ビットを立てる
+    XOR (^):  0b1100 ^ 0b1010 = 0b0110  ← 差分検出・トグル
+    NOT (~):  ~0b1100 = 0b...11110011   ← ビット反転
+    左シフト(<<): x << n = x * 2^n  (2倍、4倍...)
+    右シフト(>>): x >> n = x / 2^n  (2で割る...)
+
+  実用例:
+    フラグ管理:
+      READABLE   = 0b001  (1)
+      WRITABLE   = 0b010  (2)
+      EXECUTABLE = 0b100  (4)
+      perm = READABLE | WRITABLE   # = 0b011 = 3
+      perm & READABLE != 0         # 読み取り権限チェック
+      perm |= EXECUTABLE           # 実行権限を追加
+      perm &= ~WRITABLE            # 書き込み権限を削除
+      perm ^= READABLE             # 読み取りをトグル
+
+    偶数・奇数判定:
+      x & 1 == 0  → 偶数
+      x & 1 == 1  → 奇数
+
+    2の累乗チェック:
+      x & (x-1) == 0  → 2の累乗
+
+    絶対値(符号なし):
+      mask = x >> 31      # 負なら全ビット1、正なら全ビット0
+      abs = (x ^ mask) - mask
+
+    swap(XOR):
+      a ^= b; b ^= a; a ^= b;  # 一時変数不要
+
+■ コンピュータがデータを表現する仕組み
+
+  整数の表現:
+    符号なし(unsigned): 0〜2^n-1
+    符号あり(2の補数): -2^(n-1)〜2^(n-1)-1
+    -1 の 8bit 表現: 11111111 (= 255 unsigned)
+    overflow: 127 + 1 = -128 (8bit signed)
+
+  浮動小数点(IEEE 754):
+    float(32bit): 符号1bit + 指数8bit + 仮数23bit
+    double(64bit): 符号1bit + 指数11bit + 仮数52bit
+    精度の限界: 0.1 + 0.2 = 0.30000000000000004
+    NaN: 0/0, sqrt(-1)
+    Infinity: 1/0
+    金融計算: 整数(円単位)またはDecimal型を使う
+
+  エンコーディング:
+    ASCII:   1文字=1byte、英数字のみ
+    UTF-8:   可変長(1〜4byte)、ASCII互換、世界標準
+    UTF-16:  2〜4byte、Javaの内部表現
+    Shift-JIS: 日本語レガシー、2byte/文字
+    BOM: ファイル先頭のバイト順マーク(UTF-8では不要)
+
+■ スタックとヒープの詳細
+
+  スタック(Stack):
+    LIFO構造。関数呼び出しのたびに「スタックフレーム」を積む。
+    スタックフレームの内容:
+      - ローカル変数
+      - 関数の引数
+      - 戻りアドレス(呼び出し元へ戻る場所)
+      - 前のフレームポインタ
+    サイズは通常1〜8MB。超えると StackOverflow。
+    再帰が深すぎると溢れる → 末尾再帰最適化で回避。
+
+  ヒープ(Heap):
+    動的に確保できる大きなメモリ領域。
+    malloc/new で確保、free/GC で解放。
+    断片化(fragmentation)が起きる。
+    参照型の実体はここに置かれ、変数にはアドレスが入る。
+
+■ キャッシュの仕組み
+
+  CPUキャッシュ:
+    L1: ~32KB、最速、コアごと
+    L2: ~256KB、少し遅い
+    L3: ~8MB、全コア共有
+    RAM: 数GB、L3より10〜100倍遅い
+    SSD: L3より1000倍以上遅い
+
+  キャッシュフレンドリーなコード:
+    ○ 配列を先頭から順にアクセス(空間局所性)
+    × ランダムアクセス、リンクリストのトラバース
+    ○ 同じデータを繰り返し使う(時間局所性)
+
+    例: 行列乗算でi→j→k順にするかi→k→j順にするかで10倍差が出る。
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 2: Python 深掘り
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ Pythonのオブジェクトモデル
+
+  Pythonでは「すべてがオブジェクト」。
+  整数、関数、クラス、モジュール全てが object を継承。
+
+  type() と isinstance():
+    type(42)             # <class 'int'>
+    type([])             # <class 'list'>
+    isinstance(42, int)  # True
+    isinstance(42, (int, float))  # どちらかならTrue
+
+  id() と is:
+    a = [1, 2, 3]
+    b = a
+    a is b       # True  (同じオブジェクト)
+    a == b       # True  (値が等しい)
+    c = [1, 2, 3]
+    a is c       # False (別オブジェクト)
+    a == c       # True
+
+  小整数キャッシュ:
+    Pythonは -5〜256 の整数をキャッシュする。
+    a = 256; b = 256; a is b  # True
+    a = 257; b = 257; a is b  # False (実装依存)
+
+■ 内包表記の全種類と応用
+
+  リスト内包表記:
+    [x**2 for x in range(10)]
+    [x for x in range(20) if x % 2 == 0]
+    [(x, y) for x in range(3) for y in range(3)]  # 直積
+    [[0]*3 for _ in range(3)]  # 3x3ゼロ行列
+
+  辞書内包表記:
+    {k: v for k, v in zip(keys, values)}
+    {v: k for k, v in d.items()}  # 辞書の反転
+    {k: v for k, v in d.items() if v > 0}
+
+  セット内包表記:
+    {x % 3 for x in range(10)}  # {0, 1, 2}
+
+  ジェネレータ式(メモリ効率が良い):
+    sum(x**2 for x in range(1000000))  # リストを作らない
+    (x for x in range(10) if x % 2 == 0)
+
+  ネストした内包表記の読み方:
+    [val for row in matrix for val in row]
+    # 外側のforから読む → matrix の各 row → 各 val
+
+■ デコレータの完全理解
+
+  デコレータは「関数を受け取り関数を返す関数」。
+  @decorator は decorator(func) の糖衣構文。
+
+  基本:
+    def logger(func):
+        def wrapper(*args, **kwargs):
+            print(f"[呼び出し] {func.__name__}({args}, {kwargs})")
+            result = func(*args, **kwargs)
+            print(f"[戻り値] {result}")
+            return result
+        return wrapper
+
+    @logger
+    def add(a, b):
+        return a + b
+
+  functools.wraps で関数名・docstringを保持:
+    from functools import wraps
+    def logger(func):
+        @wraps(func)         # ← 必須
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+        return wrapper
+
+  引数付きデコレータ(3段ネスト):
+    def retry(times=3):
+        def decorator(func):
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                for i in range(times):
+                    try:
+                        return func(*args, **kwargs)
+                    except Exception as e:
+                        if i == times - 1: raise
+                        print(f"リトライ {i+1}/{times}")
+            return wrapper
+        return decorator
+
+    @retry(times=5)
+    def unstable_request():
+        ...
+
+  クラスデコレータ:
+    class Singleton:
+        _instances = {}
+        def __call__(self, cls):
+            def get_instance(*args, **kwargs):
+                if cls not in self._instances:
+                    self._instances[cls] = cls(*args, **kwargs)
+                return self._instances[cls]
+            return get_instance
+
+  よく使う標準デコレータ:
+    @property           # getterをプロパティ化
+    @classmethod        # クラスメソッド
+    @staticmethod       # スタティックメソッド
+    @functools.lru_cache(maxsize=128)   # メモ化キャッシュ
+    @functools.cache    # maxsizeなしキャッシュ(Python3.9+)
+    @functools.wraps    # デコレータ作成時の必携
+
+■ コンテキストマネージャ
+
+  with文の仕組み:
+    __enter__ と __exit__ を実装すると with文で使える。
+
+    class Timer:
+        import time
+        def __enter__(self):
+            self.start = self.time.time()
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self.elapsed = self.time.time() - self.start
+            print(f"経過: {self.elapsed:.3f}秒")
+            return False  # Trueにすると例外を握りつぶす
+
+    with Timer() as t:
+        result = heavy_computation()
+    print(t.elapsed)
+
+  contextlib を使う方法:
+    from contextlib import contextmanager
+
+    @contextmanager
+    def timer():
+        import time
+        start = time.time()
+        try:
+            yield
+        finally:
+            print(f"経過: {time.time()-start:.3f}秒")
+
+    with timer():
+        result = heavy_computation()
+
+■ ジェネレータの深掘り
+
+  yield from:
+    def chain(*iterables):
+        for it in iterables:
+            yield from it   # サブジェネレータへ委譲
+
+    list(chain([1,2], [3,4], [5]))  # [1,2,3,4,5]
+
+  双方向通信(send):
+    def accumulator():
+        total = 0
+        while True:
+            value = yield total    # yieldで値を返しつつ受け取る
+            if value is None: break
+            total += value
+
+    gen = accumulator()
+    next(gen)          # 最初のyieldまで進める(0を返す)
+    gen.send(10)       # 10を送る(10を返す)
+    gen.send(20)       # 20を送る(30を返す)
+
+  無限シーケンス:
+    def naturals():
+        n = 0
+        while True:
+            yield n
+            n += 1
+
+    from itertools import islice
+    list(islice(naturals(), 10))  # [0,1,...,9]
+
+■ Pythonのメタクラス
+
+  メタクラス = クラスを作るクラス。
+  デフォルトのメタクラスは type。
+
+  # クラス定義は実はこれと同じ:
+  MyClass = type("MyClass", (BaseClass,), {"method": my_func})
+
+  カスタムメタクラス:
+    class SingletonMeta(type):
+        _instances = {}
+        def __call__(cls, *args, **kwargs):
+            if cls not in cls._instances:
+                cls._instances[cls] = super().__call__(*args, **kwargs)
+            return cls._instances[cls]
+
+    class Database(metaclass=SingletonMeta):
+        def __init__(self):
+            self.connection = connect()
+
+  __init_subclass__: サブクラス作成時にフックを差し込む
+    class Plugin:
+        _registry = {}
+        def __init_subclass__(cls, name=None, **kwargs):
+            super().__init_subclass__(**kwargs)
+            Plugin._registry[name or cls.__name__] = cls
+
+    class MyPlugin(Plugin, name="my"):
+        pass
+
+    Plugin._registry  # {"my": MyPlugin}
+
+■ ディスクリプタ(property の仕組み)
+
+  ディスクリプタ = __get__, __set__, __delete__ を持つオブジェクト。
+  property はディスクリプタの実装。
+
+    class ValidatedInt:
+        def __set_name__(self, owner, name):
+            self.name = name
+        def __get__(self, obj, objtype=None):
+            if obj is None: return self
+            return obj.__dict__.get(self.name, 0)
+        def __set__(self, obj, value):
+            if not isinstance(value, int):
+                raise TypeError(f"{self.name} must be int")
+            if value < 0:
+                raise ValueError(f"{self.name} must be >= 0")
+            obj.__dict__[self.name] = value
+
+    class Person:
+        age = ValidatedInt()
+
+    p = Person()
+    p.age = 25    # OK
+    p.age = -1    # ValueError
+    p.age = "25"  # TypeError
+
+■ 型ヒントの活用(Python 3.10+)
+
+  from typing import (
+    Any, Union, Optional, Literal,
+    Callable, TypeVar, Generic,
+    overload
+  )
+
+  Union と Optional:
+    def parse(x: str | int) -> str:  # Python3.10+ の書き方
+        return str(x)
+    def find(lst: list, key: str) -> str | None:
+        ...
+
+  TypeVar(ジェネリクス):
+    T = TypeVar("T")
+    def first(lst: list[T]) -> T:
+        return lst[0]
+
+  Callable:
+    from typing import Callable
+    def apply(func: Callable[[int, int], int], a: int, b: int) -> int:
+        return func(a, b)
+
+  Protocol(ダックタイピングの型付け):
+    from typing import Protocol
+    class Drawable(Protocol):
+        def draw(self) -> None: ...
+
+    def render(obj: Drawable) -> None:
+        obj.draw()   # draw()があれば何でもOK
+
+  dataclass:
+    from dataclasses import dataclass, field
+    @dataclass
+    class Point:
+        x: float
+        y: float
+        label: str = "unnamed"
+        tags: list = field(default_factory=list)
+
+    @dataclass(frozen=True)  # 不変
+    class FrozenPoint:
+        x: float; y: float
+
+■ 非同期処理の深掘り
+
+  イベントループの仕組み:
+    asyncio はシングルスレッドで I/O 待ちの間に他のタスクを実行する。
+    CPU処理が重い場合は効果なし → ProcessPoolExecutor を使う。
+
+  非同期コンテキストマネージャ:
+    class AsyncDB:
+        async def __aenter__(self):
+            self.conn = await connect()
+            return self.conn
+        async def __aexit__(self, *args):
+            await self.conn.close()
+
+    async with AsyncDB() as conn:
+        result = await conn.query("SELECT 1")
+
+  非同期イテレータ:
+    class AsyncRange:
+        def __init__(self, n): self.n = n; self.i = 0
+        def __aiter__(self): return self
+        async def __anext__(self):
+            if self.i >= self.n: raise StopAsyncIteration
+            await asyncio.sleep(0)  # 他のタスクに制御を渡す
+            val = self.i; self.i += 1
+            return val
+
+    async for x in AsyncRange(5):
+        print(x)
+
+  asyncio.gather vs asyncio.wait:
+    # gather: 全て待つ、一つ失敗すると他もキャンセル
+    results = await asyncio.gather(task1(), task2(), task3())
+
+    # wait: 細かい制御が可能
+    tasks = {asyncio.create_task(t) for t in [task1(), task2()]}
+    done, pending = await asyncio.wait(tasks, timeout=5.0)
+
+  asyncio.Queue: タスクキュー
+    queue = asyncio.Queue(maxsize=10)
+
+    async def producer():
+        for i in range(10):
+            await queue.put(i)
+
+    async def consumer():
+        while True:
+            item = await queue.get()
+            await process(item)
+            queue.task_done()
+
+  executor で CPU処理を非同期化:
+    import asyncio, concurrent.futures
+
+    async def main():
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ProcessPoolExecutor() as pool:
+            result = await loop.run_in_executor(pool, cpu_heavy_func, arg)
+
+■ collections モジュールの全機能
+
+  Counter: 頻度カウント
+    from collections import Counter
+    c = Counter("abracadabra")  # {'a':5,'b':2,'r':2,'c':1,'d':1}
+    c.most_common(3)            # 上位3件
+    c['z']                      # KeyErrorでなく 0 を返す
+    c + Counter("abc")          # 加算
+    c - Counter("abc")          # 減算(負は除外)
+
+  defaultdict: キーがなくてもエラーにならない
+    from collections import defaultdict
+    d = defaultdict(list)
+    d["key"].append(1)   # KeyError なし
+    d = defaultdict(int)
+    d["count"] += 1      # 初期値0から加算
+
+  OrderedDict: 挿入順保持(Python3.7+では通常dictも保持)
+    from collections import OrderedDict
+    od = OrderedDict()
+    od.move_to_end("key")     # 末尾に移動
+    od.move_to_end("key", last=False)  # 先頭に移動
+    LRUキャッシュの実装に使える。
+
+  deque: 両端キュー
+    from collections import deque
+    d = deque([1,2,3], maxlen=5)
+    d.appendleft(0)     # 先頭追加: O(1)
+    d.popleft()         # 先頭削除: O(1)
+    d.rotate(2)         # 右に2つ回転
+    ※ リストの先頭操作は O(n) → deque なら O(1)
+
+  namedtuple: 名前付きタプル
+    from collections import namedtuple
+    Point = namedtuple("Point", ["x", "y"])
+    p = Point(1, 2)
+    p.x, p.y   # 1, 2
+    p._asdict() # {"x":1,"y":2}
+    p._replace(x=10)  # Point(x=10, y=2)
+
+  ChainMap: 複数辞書を束ねる
+    from collections import ChainMap
+    defaults = {"color": "red", "size": 10}
+    overrides = {"color": "blue"}
+    merged = ChainMap(overrides, defaults)
+    merged["color"]  # "blue" (overridesが優先)
+    merged["size"]   # 10    (defaultsから)
+
+■ itertools の全機能
+
+  from itertools import (
+    count, cycle, repeat,          # 無限イテレータ
+    chain, chain.from_iterable,    # 連結
+    islice, takewhile, dropwhile,  # スライス
+    filterfalse, compress,         # フィルタ
+    starmap, accumulate,           # 変換
+    groupby,                       # グループ化
+    product, permutations, combinations, combinations_with_replacement
+  )
+
+  count(start, step): 無限カウンタ
+    list(islice(count(10, 2), 5))  # [10,12,14,16,18]
+
+  cycle(iterable): 無限繰り返し
+    colors = cycle(["red","green","blue"])
+    [next(colors) for _ in range(6)]  # r,g,b,r,g,b
+
+  repeat(obj, times): 繰り返し
+    list(repeat("x", 3))  # ["x","x","x"]
+
+  chain: 複数イテレータを繋げる
+    list(chain([1,2],[3,4],[5]))   # [1,2,3,4,5]
+    list(chain.from_iterable([[1,2],[3,4]]))  # 同じ
+
+  groupby: 連続したグループ化
+    data = [("A",1),("A",2),("B",3),("B",4)]
+    for key, grp in groupby(data, key=lambda x: x[0]):
+        print(key, list(grp))
+    # ※ 事前ソートが必要
+
+  accumulate: 累積
+    from itertools import accumulate
+    import operator
+    list(accumulate([1,2,3,4,5]))          # [1,3,6,10,15] 累積和
+    list(accumulate([1,2,3,4,5], operator.mul))  # [1,2,6,24,120] 階乗
+
+  product: 直積(ネストfor文の代わり)
+    list(product("AB", "CD"))  # [('A','C'),('A','D'),('B','C'),('B','D')]
+    list(product(range(2), repeat=3))  # 0/1の全3bit組み合わせ
+
+  permutations / combinations:
+    list(permutations("ABC", 2))       # 順列
+    list(combinations("ABC", 2))       # 組み合わせ
+    list(combinations_with_replacement("ABC", 2))  # 重複あり組み合わせ
+
+■ functools の全機能
+
+  lru_cache / cache: メモ化
+    from functools import lru_cache, cache
+
+    @cache
+    def fib(n):
+        if n < 2: return n
+        return fib(n-1) + fib(n-2)
+
+    fib(100)   # 一瞬で計算(キャッシュなしだと宇宙の年齢を超える)
+    fib.cache_info()  # CacheInfo(hits=..., misses=..., ...)
+    fib.cache_clear() # キャッシュクリア
+
+  partial: 引数の一部を固定
+    from functools import partial
+    def power(base, exp): return base ** exp
+    square = partial(power, exp=2)
+    cube = partial(power, exp=3)
+    square(5)  # 25
+
+  reduce: 左から畳み込み
+    from functools import reduce
+    reduce(lambda a,b: a+b, [1,2,3,4,5])  # ((((1+2)+3)+4)+5) = 15
+
+  total_ordering: 比較メソッドを自動補完
+    from functools import total_ordering
+    @total_ordering
+    class Version:
+        def __init__(self, v): self.v = v
+        def __eq__(self, other): return self.v == other.v
+        def __lt__(self, other): return self.v < other.v
+        # <= >= > が自動生成される
+
+  singledispatch: 型によって処理を切り替え
+    from functools import singledispatch
+    @singledispatch
+    def process(obj):
+        raise TypeError(f"Unsupported: {type(obj)}")
+
+    @process.register(int)
+    def _(obj): return obj * 2
+
+    @process.register(str)
+    def _(obj): return obj.upper()
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 3: JavaScript / TypeScript 深掘り
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ イベントループを完全理解する
+
+  JavaScriptはシングルスレッド。
+  非同期処理はイベントループで実現。
+
+  処理の優先順位(高→低):
+    1. 現在の同期処理
+    2. microtask queue: Promise.then, queueMicrotask, MutationObserver
+    3. macrotask queue: setTimeout, setInterval, I/Oコールバック
+
+  例:
+    console.log("1");
+    setTimeout(() => console.log("4"), 0);
+    Promise.resolve().then(() => console.log("3"));
+    console.log("2");
+    // 出力: 1, 2, 3, 4
+
+  なぜ setTimeout(fn, 0) でも後回しになるか:
+    macrotask は microtask が全て完了してから実行される。
+
+  queueMicrotask:
+    queueMicrotask(() => console.log("microtask"));
+
+■ Prototype(プロトタイプ)チェーン
+
+  JavaScriptのクラスはプロトタイプの糖衣構文。
+
+  function Animal(name) { this.name = name; }
+  Animal.prototype.speak = function() { return this.name + " speaks"; };
+
+  const dog = new Animal("Rex");
+  dog.speak();   // プロトタイプチェーンで Animal.prototype.speak を探す
+
+  プロトタイプチェーン:
+    dog → Animal.prototype → Object.prototype → null
+
+  class構文との対応:
+    class Animal {}
+    Animal.prototype   // ← メソッドはここに格納される
+    Animal.__proto__   // ← static メソッドの継承元
+
+  hasOwnProperty で判別:
+    dog.hasOwnProperty("name")   // true (自身のプロパティ)
+    dog.hasOwnProperty("speak")  // false (プロトタイプ上)
+
+  Object.create: プロトタイプを明示的に設定
+    const proto = { greet() { return "Hello"; } };
+    const obj = Object.create(proto);
+    obj.greet();  // "Hello"
+    Object.getPrototypeOf(obj) === proto;  // true
+
+■ this の完全理解
+
+  thisの値は「どう呼ばれたか」で決まる。
+
+  1. メソッド呼び出し: オブジェクト
+     obj.method()  → this = obj
+
+  2. 単純な呼び出し: undefined (strict mode) / グローバル
+     func()  → this = undefined
+
+  3. コンストラクタ: 新しいオブジェクト
+     new Foo()  → this = 新しく作られたオブジェクト
+
+  4. call/apply/bind: 明示的に指定
+     func.call(obj, arg1, arg2)
+     func.apply(obj, [arg1, arg2])
+     const bound = func.bind(obj)  → bound()
+
+  5. アロー関数: 定義された場所の this を継承(束縛しない)
+     class Timer {
+       start() {
+         setInterval(() => {
+           this.tick();  // ← アローなのでTimerインスタンスを指す
+         }, 1000);
+       }
+     }
+
+  よくあるバグ:
+    class Foo {
+      method() { console.log(this); }
+    }
+    const foo = new Foo();
+    const fn = foo.method;
+    fn();  // this = undefined (メソッドとして呼ばれていない)
+
+    // 対策:
+    const fn = foo.method.bind(foo);   // bindで固定
+    const fn = () => foo.method();     // ラップ
+
+■ クロージャの実用パターン
+
+  モジュールパターン(プライベート変数):
+    const counter = (() => {
+      let count = 0;         // プライベート
+      return {
+        increment() { return ++count; },
+        decrement() { return --count; },
+        value() { return count; }
+      };
+    })();
+
+  メモ化:
+    function memoize(fn) {
+      const cache = new Map();
+      return function(...args) {
+        const key = JSON.stringify(args);
+        if (cache.has(key)) return cache.get(key);
+        const result = fn.apply(this, args);
+        cache.set(key, result);
+        return result;
+      };
+    }
+    const memoFib = memoize(fib);
+
+  カリー化:
+    const curry = fn => {
+      const arity = fn.length;
+      return function curried(...args) {
+        if (args.length >= arity) return fn(...args);
+        return (...more) => curried(...args, ...more);
+      };
+    };
+    const add = curry((a, b, c) => a + b + c);
+    add(1)(2)(3);   // 6
+    add(1, 2)(3);   // 6
+    add(1)(2, 3);   // 6
+
+■ 非同期処理の詳細
+
+  Promise の状態:
+    pending → fulfilled(resolve) または rejected(reject)
+    一度確定すると変化しない(immutable)
+
+  Promiseチェーン:
+    fetch(url)
+      .then(res => {
+        if (!res.ok) throw new Error(res.status);
+        return res.json();           // Promiseを返すと自動でチェーン
+      })
+      .then(data => transform(data))
+      .catch(err => {
+        console.error(err);
+        return defaultValue;         // catchで回復できる
+      })
+      .finally(() => hideLoading()); // 成否に関わらず実行
+
+  Promise.allSettled: 全て待ち、失敗も含めて結果を返す
+    const results = await Promise.allSettled([p1, p2, p3]);
+    results.forEach(r => {
+      if (r.status === "fulfilled") console.log(r.value);
+      else console.error(r.reason);
+    });
+
+  Promise.any: 最初に成功したものを返す(全て失敗でAggregateError)
+    const first = await Promise.any([fetchFromServer1(), fetchFromServer2()]);
+
+  中断可能な非同期(AbortController):
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    fetch(url, { signal })
+      .then(r => r.json())
+      .catch(e => {
+        if (e.name === "AbortError") console.log("中断された");
+      });
+
+    // 中断する
+    controller.abort();
+
+  非同期イテレータ:
+    async function* streamData() {
+      for await (const chunk of readableStream) {
+        yield processChunk(chunk);
+      }
+    }
+    for await (const item of streamData()) {
+      console.log(item);
+    }
+
+■ 高度な型(TypeScript)
+
+  Conditional Types(条件型):
+    type IsString<T> = T extends string ? "yes" : "no";
+    type R = IsString<string>;   // "yes"
+    type R2 = IsString<number>;  // "no"
+
+    // inferで型を抽出
+    type ReturnType<T> = T extends (...args: any[]) => infer R ? R : never;
+    type FuncRet = ReturnType<() => string>;  // string
+
+  Mapped Types(マップ型):
+    type ReadOnly<T> = { readonly [K in keyof T]: T[K] };
+    type Optional<T> = { [K in keyof T]?: T[K] };
+    type Nullable<T> = { [K in keyof T]: T[K] | null };
+
+    // keyof + as でキーを変換
+    type Getters<T> = {
+      [K in keyof T as `get${Capitalize<string & K>}`]: () => T[K]
+    };
+    type G = Getters<{ name: string; age: number }>;
+    // { getName: () => string; getAge: () => number }
+
+  Template Literal Types:
+    type EventName = "click" | "focus" | "blur";
+    type Handler = `on${Capitalize<EventName>}`;
+    // "onClick" | "onFocus" | "onBlur"
+
+  Discriminated Union(タグ付きユニオン):
+    type Shape =
+      | { kind: "circle"; radius: number }
+      | { kind: "rect"; width: number; height: number }
+      | { kind: "triangle"; base: number; height: number };
+
+    function area(s: Shape): number {
+      switch (s.kind) {
+        case "circle": return Math.PI * s.radius ** 2;
+        case "rect": return s.width * s.height;
+        case "triangle": return 0.5 * s.base * s.height;
+      }
+    }
+
+  satisfies 演算子(TS4.9+):
+    const palette = {
+      red: [255, 0, 0],
+      green: "#00ff00",
+    } satisfies Record<string, string | number[]>;
+    // 型チェックしつつ、推論した型を保持する
+
+  const assertion:
+    const config = {
+      host: "localhost",
+      port: 3000,
+    } as const;
+    // config.host の型は "localhost" (stringでなくリテラル型)
+
+■ パフォーマンス最適化テクニック
+
+  デバウンスとスロットル:
+    // デバウンス: 最後の呼び出しからN秒後に実行
+    function debounce(fn, delay) {
+      let timer;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+      };
+    }
+    const onSearch = debounce(search, 300);
+
+    // スロットル: N秒に1回だけ実行
+    function throttle(fn, interval) {
+      let last = 0;
+      return (...args) => {
+        const now = Date.now();
+        if (now - last >= interval) {
+          last = now;
+          fn(...args);
+        }
+      };
+    }
+    window.addEventListener("scroll", throttle(onScroll, 100));
+
+  メモ化(React.memo, useMemo, useCallback):
+    // React でのレンダリング最適化
+    const ExpensiveComponent = React.memo(({ data }) => {
+      // propsが変わらない限り再レンダリングしない
+      return <div>{data}</div>;
+    });
+
+    function Parent() {
+      const sorted = useMemo(() => slowSort(data), [data]);
+      const onClick = useCallback(() => doSomething(id), [id]);
+      return <Child data={sorted} onClick={onClick} />;
+    }
+
+  Web Worker: メインスレッドをブロックしない
+    // main.js
+    const worker = new Worker("worker.js");
+    worker.postMessage({ data: bigArray });
+    worker.onmessage = e => console.log(e.data.result);
+
+    // worker.js
+    self.onmessage = e => {
+      const result = heavyComputation(e.data.data);
+      self.postMessage({ result });
+    };
+
+  Virtual DOM と差分更新:
+    Reactはメモリ上の仮想DOMツリーを比較(reconciliation)し
+    差分のみ実際のDOMに適用する。
+    → 直接DOMを操作するより遥かに効率的。
+
+■ Node.js の深掘り
+
+  Stream: 大容量データを小さなチャンクで処理
+    import { createReadStream, createWriteStream } from "fs";
+    import { Transform } from "stream";
+    import { pipeline } from "stream/promises";
+
+    const upperCase = new Transform({
+      transform(chunk, encoding, callback) {
+        callback(null, chunk.toString().toUpperCase());
+      }
+    });
+
+    await pipeline(
+      createReadStream("input.txt"),
+      upperCase,
+      createWriteStream("output.txt")
+    );
+
+  EventEmitter:
+    import { EventEmitter } from "events";
+    class MyEmitter extends EventEmitter {}
+    const em = new MyEmitter();
+
+    em.on("data", (payload) => console.log(payload));
+    em.once("end", () => console.log("終了"));
+    em.emit("data", { value: 42 });
+    em.off("data", handler);  // 解除
+
+  Worker Threads: Node.jsでの真の並列処理
+    import { Worker, isMainThread, parentPort } from "worker_threads";
+
+    if (isMainThread) {
+      const worker = new Worker(__filename);
+      worker.on("message", console.log);
+    } else {
+      const result = cpuHeavyTask();
+      parentPort.postMessage(result);
+    }
+
+  クラスタリング: CPUコア数分のプロセスを起動
+    import cluster from "cluster";
+    import os from "os";
+
+    if (cluster.isPrimary) {
+      for (let i = 0; i < os.cpus().length; i++) {
+        cluster.fork();
+      }
+    } else {
+      startServer();  // 各ワーカーがサーバーを起動
+    }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 4: アルゴリズム 深掘り
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 二分探索の完全実装
+
+  基本:
+    def binary_search(arr, target):
+        left, right = 0, len(arr) - 1
+        while left <= right:
+            mid = left + (right - left) // 2  # オーバーフロー対策
+            if arr[mid] == target: return mid
+            elif arr[mid] < target: left = mid + 1
+            else: right = mid - 1
+        return -1
+
+  下限/上限(lower_bound / upper_bound):
+    # target以上の最初のインデックス(lower_bound)
+    def lower_bound(arr, target):
+        left, right = 0, len(arr)
+        while left < right:
+            mid = (left + right) // 2
+            if arr[mid] < target: left = mid + 1
+            else: right = mid
+        return left
+
+    # targetより大きい最初のインデックス(upper_bound)
+    def upper_bound(arr, target):
+        left, right = 0, len(arr)
+        while left < right:
+            mid = (left + right) // 2
+            if arr[mid] <= target: left = mid + 1
+            else: right = mid
+        return left
+
+  答えで二分探索(問題を判定問題に変換):
+    # 例: 重さの最大がW以下でN個に分けられる最小個数を求める
+    def can_divide(arr, max_weight, n):
+        groups, curr = 1, 0
+        for x in arr:
+            if curr + x > max_weight:
+                groups += 1; curr = 0
+            curr += x
+        return groups <= n
+
+    def min_divisions(arr, n):
+        left, right = max(arr), sum(arr)
+        while left < right:
+            mid = (left + right) // 2
+            if can_divide(arr, mid, n): right = mid
+            else: left = mid + 1
+        return left
+
+■ 動的計画法(DP)のパターン
+
+  1. 線形DP(1次元配列)
+     dp[i] = i番目までの最適解
+
+     コイン問題(最小枚数):
+       coins = [1, 5, 10, 50]
+       dp = [inf] * (amount + 1)
+       dp[0] = 0
+       for i in range(1, amount + 1):
+           for c in coins:
+               if c <= i:
+                   dp[i] = min(dp[i], dp[i-c] + 1)
+
+  2. 2次元DP
+     dp[i][j] = i,j番目までの最適解
+
+     最長共通部分列(LCS):
+       dp = [[0]*(len(t)+1) for _ in range(len(s)+1)]
+       for i in range(1, len(s)+1):
+           for j in range(1, len(t)+1):
+               if s[i-1] == t[j-1]:
+                   dp[i][j] = dp[i-1][j-1] + 1
+               else:
+                   dp[i][j] = max(dp[i-1][j], dp[i][j-1])
+
+     最長増加部分列(LIS) - O(n log n):
+       import bisect
+       def lis(arr):
+           tails = []
+           for x in arr:
+               pos = bisect.bisect_left(tails, x)
+               if pos == len(tails): tails.append(x)
+               else: tails[pos] = x
+           return len(tails)
+
+  3. ナップサック問題
+     # 0/1ナップサック: 各アイテムを1個だけ選べる
+     dp = [0] * (W + 1)
+     for w, v in items:
+         for j in range(W, w-1, -1):  # ← 逆順が重要
+             dp[j] = max(dp[j], dp[j-w] + v)
+
+     # 無制限ナップサック: 何個でも選べる
+     dp = [0] * (W + 1)
+     for w, v in items:
+         for j in range(w, W+1):      # ← 順方向
+             dp[j] = max(dp[j], dp[j-w] + v)
+
+  4. 区間DP
+     dp[i][j] = i〜jの区間の最適解
+
+     行列連鎖積(最小乗算回数):
+       n = len(dims) - 1
+       dp = [[0]*n for _ in range(n)]
+       for length in range(2, n+1):
+           for i in range(n - length + 1):
+               j = i + length - 1
+               dp[i][j] = inf
+               for k in range(i, j):
+                   cost = dp[i][k] + dp[k+1][j] + dims[i]*dims[k+1]*dims[j+1]
+                   dp[i][j] = min(dp[i][j], cost)
+
+■ グラフアルゴリズムの実装
+
+  BFS(幅優先探索):
+    from collections import deque
+
+    def bfs(graph, start):
+        visited = {start}
+        queue = deque([start])
+        result = []
+        while queue:
+            node = queue.popleft()
+            result.append(node)
+            for neighbor in graph[node]:
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    queue.append(neighbor)
+        return result
+
+    最短経路(重みなし):
+    def shortest_path(graph, start, end):
+        queue = deque([(start, [start])])
+        visited = {start}
+        while queue:
+            node, path = queue.popleft()
+            if node == end: return path
+            for n in graph[node]:
+                if n not in visited:
+                    visited.add(n)
+                    queue.append((n, path + [n]))
+        return None
+
+  DFS(深さ優先探索):
+    def dfs(graph, start, visited=None):
+        if visited is None: visited = set()
+        visited.add(start)
+        for neighbor in graph[start]:
+            if neighbor not in visited:
+                dfs(graph, neighbor, visited)
+        return visited
+
+    トポロジカルソート(DFSベース):
+    def toposort(graph):
+        visited, result = set(), []
+        def dfs(node):
+            visited.add(node)
+            for n in graph.get(node, []):
+                if n not in visited: dfs(n)
+            result.append(node)
+        for node in graph:
+            if node not in visited: dfs(node)
+        return result[::-1]
+
+  ダイクストラ法:
+    import heapq
+
+    def dijkstra(graph, start):
+        # graph = {node: [(cost, neighbor), ...]}
+        dist = {node: float('inf') for node in graph}
+        dist[start] = 0
+        heap = [(0, start)]
+
+        while heap:
+            cost, node = heapq.heappop(heap)
+            if cost > dist[node]: continue
+            for ncost, neighbor in graph[node]:
+                new_cost = cost + ncost
+                if new_cost < dist[neighbor]:
+                    dist[neighbor] = new_cost
+                    heapq.heappush(heap, (new_cost, neighbor))
+        return dist
+
+  Union-Find(素集合データ構造):
+    class UnionFind:
+        def __init__(self, n):
+            self.parent = list(range(n))
+            self.rank = [0] * n
+
+        def find(self, x):
+            if self.parent[x] != x:
+                self.parent[x] = self.find(self.parent[x])  # 経路圧縮
+            return self.parent[x]
+
+        def union(self, x, y):
+            rx, ry = self.find(x), self.find(y)
+            if rx == ry: return False
+            if self.rank[rx] < self.rank[ry]: rx, ry = ry, rx
+            self.parent[ry] = rx
+            if self.rank[rx] == self.rank[ry]: self.rank[rx] += 1
+            return True
+
+        def connected(self, x, y):
+            return self.find(x) == self.find(y)
+
+■ 文字列アルゴリズム
+
+  KMP法(文字列検索 O(n+m)):
+    def kmp_search(text, pattern):
+        n, m = len(text), len(pattern)
+        # 失敗関数(failure function)の構築
+        fail = [0] * m
+        j = 0
+        for i in range(1, m):
+            while j > 0 and pattern[i] != pattern[j]:
+                j = fail[j-1]
+            if pattern[i] == pattern[j]:
+                j += 1
+            fail[i] = j
+
+        # 検索
+        j = 0
+        result = []
+        for i in range(n):
+            while j > 0 and text[i] != pattern[j]:
+                j = fail[j-1]
+            if text[i] == pattern[j]:
+                j += 1
+            if j == m:
+                result.append(i - m + 1)
+                j = fail[j-1]
+        return result
+
+  転置インデックス(全文検索の基礎):
+    def build_index(documents):
+        index = defaultdict(set)
+        for doc_id, text in enumerate(documents):
+            for word in text.lower().split():
+                index[word].add(doc_id)
+        return index
+
+    def search(index, query):
+        words = query.lower().split()
+        if not words: return set()
+        result = index[words[0]].copy()
+        for word in words[1:]:
+            result &= index[word]   # AND検索
+        return result
+
+■ セグメント木(区間クエリ)
+
+  区間の最小/最大/合計を O(log n) で処理
+
+  class SegmentTree:
+      def __init__(self, n):
+          self.n = n
+          self.tree = [float('inf')] * (2 * n)
+
+      def update(self, i, val):
+          i += self.n
+          self.tree[i] = val
+          while i > 1:
+              i //= 2
+              self.tree[i] = min(self.tree[2*i], self.tree[2*i+1])
+
+      def query(self, l, r):  # [l, r) の最小値
+          l += self.n; r += self.n
+          res = float('inf')
+          while l < r:
+              if l & 1:
+                  res = min(res, self.tree[l]); l += 1
+              if r & 1:
+                  r -= 1; res = min(res, self.tree[r])
+              l //= 2; r //= 2
+          return res
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 5: SQL / データベース 深掘り
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ インデックスの仕組みと設計
+
+  B-Tree インデックス(最も一般的):
+    葉ノードがソートされたデータを保持しリンクリストで繋がっている。
+    等値検索: =, IN
+    範囲検索: BETWEEN, <, >, LIKE 'abc%'
+    ソート: ORDER BY
+    ※ LIKE '%abc' や LIKE '%abc%' はインデックスを使えない
+
+  インデックスが使われる条件:
+    ○ WHERE indexed_col = value
+    ○ WHERE indexed_col > value
+    ○ ORDER BY indexed_col
+    ○ 複合インデックス(a,b,c) → a, ab, abc の順で有効
+    × WHERE func(indexed_col) = value  (関数で包むとNG)
+    × WHERE col1 + col2 = value
+    × 複合インデックス(a,b) で WHERE b = value だけ
+
+  カバリングインデックス: クエリに必要な列が全てインデックスに含まれる
+    CREATE INDEX idx_cover ON orders(user_id, created_at, total);
+    SELECT created_at, total FROM orders WHERE user_id = 1;
+    -- ← テーブルを見ずにインデックスだけで完結(超速)
+
+  EXPLAIN ANALYZE で確認:
+    EXPLAIN ANALYZE SELECT * FROM users WHERE email = 'a@b.com';
+    → Seq Scan: フルスキャン(遅い)
+    → Index Scan: インデックス使用
+    → Bitmap Index Scan: 複数条件での効率的なスキャン
+
+■ ウィンドウ関数(分析関数)
+
+  GROUP BY と違い、元の行を維持したまま集計できる。
+
+  構文: 関数() OVER (PARTITION BY ... ORDER BY ... ROWS/RANGE ...)
+
+  ランキング:
+    SELECT name, score,
+      RANK() OVER (ORDER BY score DESC) as rank,
+      DENSE_RANK() OVER (ORDER BY score DESC) as dense_rank,
+      ROW_NUMBER() OVER (ORDER BY score DESC) as row_num,
+      NTILE(4) OVER (ORDER BY score DESC) as quartile
+    FROM students;
+
+  グループ内ランキング:
+    SELECT dept, name, salary,
+      RANK() OVER (PARTITION BY dept ORDER BY salary DESC) as dept_rank
+    FROM employees;
+    -- 部署ごとに給与順位を付ける
+
+  累積集計:
+    SELECT date, revenue,
+      SUM(revenue) OVER (ORDER BY date) as cumulative_revenue,
+      AVG(revenue) OVER (ORDER BY date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) as moving_avg_7d
+    FROM daily_sales;
+
+  前後の行を参照:
+    SELECT date, revenue,
+      LAG(revenue, 1) OVER (ORDER BY date) as prev_revenue,
+      LEAD(revenue, 1) OVER (ORDER BY date) as next_revenue,
+      FIRST_VALUE(revenue) OVER (ORDER BY date) as first_revenue
+    FROM daily_sales;
+
+    -- 前日比増減率
+    SELECT date, revenue,
+      revenue / LAG(revenue) OVER (ORDER BY date) - 1 as growth_rate
+    FROM daily_sales;
+
+■ クエリ最適化テクニック
+
+  N+1問題を解消する:
+    -- 悪い例(N+1): ユーザーを取得してから各ユーザーの注文を取得
+    users = SELECT * FROM users;    -- 1回
+    for user in users:
+        orders = SELECT * FROM orders WHERE user_id = user.id;  -- N回
+
+    -- 良い例(JOIN):
+    SELECT u.*, o.id as order_id, o.total
+    FROM users u
+    LEFT JOIN orders o ON u.id = o.user_id;
+
+    -- 良い例(IN):
+    SELECT * FROM orders WHERE user_id IN (1,2,3,4,5);
+
+  ページネーション最適化:
+    -- 遅い(LIMIT/OFFSET): OFFSETが大きいほど遅い
+    SELECT * FROM posts ORDER BY id DESC LIMIT 20 OFFSET 10000;
+
+    -- 速い(カーソルベース): 前回の最後のIDを使う
+    SELECT * FROM posts WHERE id < :last_id ORDER BY id DESC LIMIT 20;
+
+  EXISTS vs IN:
+    -- 大量データでは EXISTS の方が速いことが多い
+    -- IN は サブクエリの結果を全部メモリに展開する
+    SELECT * FROM users u
+    WHERE EXISTS (
+      SELECT 1 FROM orders o WHERE o.user_id = u.id
+    );
+
+  部分インデックス: 条件付きインデックス
+    CREATE INDEX idx_active_users ON users(email) WHERE active = true;
+    -- active=true のユーザーだけインデックスを作る→小さく速い
+
+  パーティショニング: テーブルを分割
+    CREATE TABLE orders (
+      id SERIAL,
+      created_at DATE NOT NULL,
+      total NUMERIC
+    ) PARTITION BY RANGE (created_at);
+
+    CREATE TABLE orders_2025 PARTITION OF orders
+    FOR VALUES FROM ('2025-01-01') TO ('2026-01-01');
+
+■ トランザクション分離レベル
+
+  READ UNCOMMITTED: ダーティリードあり(他トランザクションの未確定を読む)
+  READ COMMITTED:   コミット済みのみ読む(PostgreSQLのデフォルト)
+  REPEATABLE READ:  同一トランザクション内では同じ結果
+  SERIALIZABLE:     完全な直列化(最も安全・最も遅い)
+
+  デッドロック:
+    トランザクションAとBが互いに相手のロックを待ち無限に待ち続ける状態。
+    対策: 常に同じ順序でリソースをロックする。
+
+  楽観的ロック vs 悲観的ロック:
+    悲観的: FOR UPDATE でロックを取得
+      SELECT * FROM accounts WHERE id = 1 FOR UPDATE;
+
+    楽観的: バージョン番号で競合検出
+      UPDATE accounts SET balance = balance - 100, version = version + 1
+      WHERE id = 1 AND version = 5;
+      -- 更新が0行なら他が先に変更した
+
+■ JSONBの活用(PostgreSQL)
+
+  -- JSONBカラム作成
+  ALTER TABLE products ADD COLUMN metadata JSONB;
+
+  -- 挿入
+  INSERT INTO products (name, metadata)
+  VALUES ('Apple', '{"color":"red","tags":["fruit","sweet"]}');
+
+  -- JSONBからキーを取得
+  SELECT metadata->>'color' FROM products;  -- "red"
+  SELECT metadata->'tags'->0 FROM products; -- "fruit"
+
+  -- JSONBの条件
+  SELECT * FROM products WHERE metadata->>'color' = 'red';
+  SELECT * FROM products WHERE metadata @> '{"color":"red"}';  -- 包含
+  SELECT * FROM products WHERE metadata ? 'color';             -- キー存在
+
+  -- JSONBインデックス(GINインデックス)
+  CREATE INDEX idx_meta ON products USING GIN (metadata);
+
+  -- 更新
+  UPDATE products SET metadata = metadata || '{"size":"large"}';
+  UPDATE products SET metadata = jsonb_set(metadata, '{color}', '"blue"');
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 6: Rust 深掘り
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ エラー処理のベストプラクティス
+
+  thiserror でカスタムエラー:
+    use thiserror::Error;
+
+    #[derive(Error, Debug)]
+    enum AppError {
+        #[error("IO エラー: {0}")]
+        Io(#[from] std::io::Error),
+        #[error("パース失敗: {0}")]
+        Parse(#[from] std::num::ParseIntError),
+        #[error("不正な入力: {field}")]
+        InvalidInput { field: String },
+    }
+
+    fn parse_age(s: &str) -> Result<u32, AppError> {
+        let age: i32 = s.parse()?;   // ParseIntError → AppError::Parse
+        if age < 0 { return Err(AppError::InvalidInput { field: "age".into() }); }
+        Ok(age as u32)
+    }
+
+  anyhow で汎用エラー:
+    use anyhow::{Context, Result};
+
+    fn read_config() -> Result<Config> {
+        let content = std::fs::read_to_string("config.toml")
+            .context("config.toml が見つかりません")?;
+        let config = toml::from_str(&content)
+            .context("config.toml のパースに失敗")?;
+        Ok(config)
+    }
+
+■ イテレータを活用した関数型スタイル
+
+  let nums = vec![1, 2, 3, 4, 5];
+
+  nums.iter()
+      .filter(|&&x| x % 2 == 0)
+      .map(|&x| x * x)
+      .collect::<Vec<_>>();  // [4, 16]
+
+  nums.iter().sum::<i32>();           // 15
+  nums.iter().product::<i32>();       // 120
+  nums.iter().max();                  // Some(5)
+  nums.iter().min();                  // Some(1)
+  nums.iter().count();                // 5
+  nums.iter().any(|&x| x > 4);       // true
+  nums.iter().all(|&x| x > 0);       // true
+  nums.iter().find(|&&x| x > 3);     // Some(4)
+  nums.iter().position(|&x| x == 3); // Some(2)
+  nums.iter().enumerate();            // (0,1),(1,2),...
+  nums.iter().zip([10,20,30,40,50].iter());  // (1,10),(2,20),...
+  nums.iter().flat_map(|&x| [x, x*2]);      // 1,2,2,4,...
+  nums.iter().fold(0, |acc, &x| acc + x);   // 15
+  nums.iter().take(3);                // [1,2,3]
+  nums.iter().skip(2);                // [3,4,5]
+  nums.iter().chain([6,7,8].iter());  // [1,...,8]
+  nums.iter().peekable();             // peek()で先読み可能
+
+  チャンクと窓:
+    nums.chunks(2);         // [[1,2],[3,4],[5]]
+    nums.windows(3);        // [[1,2,3],[2,3,4],[3,4,5]]
+
+■ スマートポインタ
+
+  Box<T>: ヒープに割り当て
+    let b = Box::new(5);    // ヒープ上のi32
+    *b                       // 間接参照
+
+    // 再帰的な型(サイズが不明な型)
+    enum List {
+        Cons(i32, Box<List>),  // ← Box なしだと無限サイズ
+        Nil,
+    }
+
+  Rc<T>: 参照カウント(シングルスレッド)
+    use std::rc::Rc;
+    let a = Rc::new(5);
+    let b = Rc::clone(&a);     // 参照カウント+1
+    Rc::strong_count(&a);      // 2
+
+  Arc<T>: スレッドセーフな参照カウント
+    use std::sync::Arc;
+    let shared = Arc::new(vec![1, 2, 3]);
+    let clone = Arc::clone(&shared);
+    std::thread::spawn(move || println!("{:?}", clone));
+
+  RefCell<T>: 実行時の借用チェック
+    use std::cell::RefCell;
+    let x = RefCell::new(5);
+    *x.borrow_mut() += 1;    // 可変借用
+    println!("{}", x.borrow()); // 不変借用
+
+  Rc<RefCell<T>>: 共有可変状態(シングルスレッド)
+    let shared = Rc::new(RefCell::new(0));
+    let clone = Rc::clone(&shared);
+    *clone.borrow_mut() += 1;
+
+■ 並行処理
+
+  std::thread:
+    use std::thread;
+    use std::sync::{Arc, Mutex};
+
+    let counter = Arc::new(Mutex::new(0));
+    let mut handles = vec![];
+
+    for _ in 0..10 {
+        let c = Arc::clone(&counter);
+        let h = thread::spawn(move || {
+            let mut num = c.lock().unwrap();
+            *num += 1;
+        });
+        handles.push(h);
+    }
+    for h in handles { h.join().unwrap(); }
+    println!("結果: {}", *counter.lock().unwrap());
+
+  チャネル(mpsc):
+    use std::sync::mpsc;
+    let (tx, rx) = mpsc::channel();
+
+    thread::spawn(move || {
+        tx.send("hello").unwrap();
+        tx.send("world").unwrap();
+    });
+
+    for msg in rx { println!("{}", msg); }
+
+  Tokio(非同期):
+    use tokio::sync::{Mutex, RwLock, Semaphore};
+
+    // セマフォ: 同時実行数を制限
+    let sem = Arc::new(Semaphore::new(10));
+    let permit = sem.acquire().await.unwrap();
+    // 処理...
+    drop(permit);  // 解放
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 7: Go 深掘り
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ インターフェースのベストプラクティス
+
+  小さいインターフェースを好む:
+    // NG: 大きすぎる
+    type Animal interface {
+        Name() string; Age() int; Speak() string; Move() string; Eat() string
+    }
+
+    // OK: 目的別に分割
+    type Speaker interface { Speak() string }
+    type Mover interface { Move() string }
+    type SpeakMover interface { Speaker; Mover }  // 埋め込みで合成
+
+  よく使う標準インターフェース:
+    io.Reader:  Read(p []byte) (n int, err error)
+    io.Writer:  Write(p []byte) (n int, err error)
+    io.Closer:  Close() error
+    fmt.Stringer: String() string
+    error: Error() string
+    sort.Interface: Len() int; Less(i,j int) bool; Swap(i,j int)
+
+■ エラー処理のイディオム
+
+  エラーラッピング(fmt.Errorf + %w):
+    if err != nil {
+        return fmt.Errorf("ユーザー取得失敗 id=%d: %w", id, err)
+    }
+
+  errors.Is / errors.As:
+    var notFound *NotFoundError
+    if errors.As(err, &notFound) {
+        // NotFoundErrorとして処理
+    }
+    if errors.Is(err, io.EOF) {
+        // io.EOF と一致
+    }
+
+  カスタムエラー:
+    type ValidationError struct {
+        Field   string
+        Message string
+    }
+    func (e *ValidationError) Error() string {
+        return fmt.Sprintf("バリデーションエラー %s: %s", e.Field, e.Message)
+    }
+
+■ ゴルーチンパターン集
+
+  ワーカープール:
+    func workerPool(jobs <-chan Job, results chan<- Result, workers int) {
+        var wg sync.WaitGroup
+        for i := 0; i < workers; i++ {
+            wg.Add(1)
+            go func() {
+                defer wg.Done()
+                for job := range jobs {
+                    results <- process(job)
+                }
+            }()
+        }
+        go func() {
+            wg.Wait()
+            close(results)
+        }()
+    }
+
+  コンテキストでキャンセル:
+    func fetchWithTimeout(ctx context.Context, url string) ([]byte, error) {
+        req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+        resp, err := http.DefaultClient.Do(req)
+        if err != nil { return nil, err }
+        defer resp.Body.Close()
+        return io.ReadAll(resp.Body)
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+    data, err := fetchWithTimeout(ctx, "https://example.com")
+
+  ファンアウト/ファンイン:
+    func fanOut(in <-chan int, n int) []<-chan int {
+        outs := make([]<-chan int, n)
+        for i := 0; i < n; i++ {
+            out := make(chan int)
+            outs[i] = out
+            go func() {
+                for v := range in { out <- v * v }
+                close(out)
+            }()
+        }
+        return outs
+    }
+
+    func merge(cs ...<-chan int) <-chan int {
+        var wg sync.WaitGroup
+        merged := make(chan int)
+        output := func(c <-chan int) {
+            defer wg.Done()
+            for v := range c { merged <- v }
+        }
+        wg.Add(len(cs))
+        for _, c := range cs { go output(c) }
+        go func() { wg.Wait(); close(merged) }()
+        return merged
+    }
+
+  sync.Once: 一度だけ実行
+    var (
+        instance *DB
+        once sync.Once
+    )
+    func GetDB() *DB {
+        once.Do(func() { instance = connect() })
+        return instance
+    }
+
+  sync.Map: スレッドセーフなMap
+    var m sync.Map
+    m.Store("key", "value")
+    v, ok := m.Load("key")
+    m.LoadOrStore("key", "default")
+    m.Delete("key")
+    m.Range(func(k, v any) bool {
+        fmt.Println(k, v)
+        return true  // falseで中断
+    })
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 8: セキュリティ 深掘り
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 暗号化の実装
+
+  AES-256-GCM(推奨):
+    import crypto from "crypto";
+
+    const ALGO = "aes-256-gcm";
+    const KEY = crypto.randomBytes(32);    // 256bit鍵
+
+    function encrypt(plaintext) {
+        const iv = crypto.randomBytes(12);  // 96bit IV
+        const cipher = crypto.createCipheriv(ALGO, KEY, iv);
+        const encrypted = Buffer.concat([
+            cipher.update(plaintext, "utf8"),
+            cipher.final()
+        ]);
+        const tag = cipher.getAuthTag();  // 認証タグ
+        return { iv, encrypted, tag };
+    }
+
+    function decrypt({ iv, encrypted, tag }) {
+        const decipher = crypto.createDecipheriv(ALGO, KEY, iv);
+        decipher.setAuthTag(tag);
+        return Buffer.concat([
+            decipher.update(encrypted),
+            decipher.final()
+        ]).toString("utf8");
+    }
+
+  パスワードハッシュ(bcrypt):
+    import bcrypt from "bcrypt";
+
+    const ROUNDS = 12;  // 2^12回の反復(遅いほどブルートフォースに強い)
+
+    async function hashPassword(pw) {
+        return bcrypt.hash(pw, ROUNDS);
+    }
+
+    async function verifyPassword(pw, hash) {
+        return bcrypt.compare(pw, hash);   // タイミング攻撃耐性あり
+    }
+
+  HMAC署名:
+    function sign(data, secret) {
+        return crypto.createHmac("sha256", secret)
+            .update(JSON.stringify(data))
+            .digest("hex");
+    }
+
+    function verify(data, signature, secret) {
+        const expected = sign(data, secret);
+        // タイミング攻撃対策: 長さが同じなら timingSafeEqual
+        const a = Buffer.from(signature, "hex");
+        const b = Buffer.from(expected, "hex");
+        return a.length === b.length && crypto.timingSafeEqual(a, b);
+    }
+
+■ JWT の仕組みと実装
+
+  構造: header.payload.signature
+    header:  {"alg":"HS256","typ":"JWT"}
+    payload: {"sub":"userId","iat":...,"exp":...}
+    signature: HMAC-SHA256(base64(header)+"."+base64(payload), secret)
+
+  セキュリティ注意点:
+    - "alg":"none" 攻撃: algを検証する
+    - 短い有効期限(exp)を設定する(15分〜1時間)
+    - リフレッシュトークンをhttpOnlyクッキーに保存
+    - JWTの失効には別途ブラックリストが必要
+
+■ 安全なWebアプリのチェックリスト
+
+  入力:
+    □ 全入力をバリデーション(長さ・型・値の範囲)
+    □ SQLクエリはプリペアドステートメント必須
+    □ HTMLに出力する際はエスケープ(textContent使用)
+    □ ファイル名にパストラバーサルがないか確認
+
+  認証:
+    □ パスワードはbcrypt/argon2でハッシュ
+    □ ブルートフォース対策(ロックアウト・レート制限)
+    □ セッションIDは推測不可能なランダム値
+    □ ログアウト時にセッションを無効化
+    □ パスワードリセットトークンは一度しか使えない
+
+  通信:
+    □ HTTPS必須
+    □ HSTS ヘッダー設定
+    □ Cookie: Secure; HttpOnly; SameSite=Strict
+    □ CSRFトークン(state-changing操作)
+
+  ヘッダー:
+    □ Content-Security-Policy
+    □ X-Content-Type-Options: nosniff
+    □ X-Frame-Options: DENY
+    □ Referrer-Policy: no-referrer
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 9: ネットワーク・プロトコル詳細
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ TCP/IP の仕組み
+
+  OSIモデル(7層):
+    7 アプリケーション層:  HTTP, HTTPS, WebSocket, FTP, SMTP
+    6 プレゼンテーション層: SSL/TLS, 圧縮
+    5 セッション層:       セッション管理
+    4 トランスポート層:   TCP, UDP
+    3 ネットワーク層:     IP, ICMP
+    2 データリンク層:     Ethernet, WiFi
+    1 物理層:            ケーブル、電気信号
+
+  TCPの3ウェイハンドシェイク:
+    クライアント → SYN → サーバー
+    クライアント ← SYN-ACK ← サーバー
+    クライアント → ACK → サーバー
+    ← 接続確立 →
+
+  TCP vs UDP:
+    TCP: 信頼性あり、順序保証、エラー再送、遅い(オーバーヘッド大)
+    UDP: 信頼性なし、順序不定、再送なし、速い(低レイテンシ)
+    TCPを使う: HTTP, HTTPS, WebSocket, SSH, FTP
+    UDPを使う: DNS, ゲーム, 動画ストリーミング, VoIP
+
+  輻輳制御(TCP):
+    スロースタート: 最初は少量、徐々に増やす
+    AIMD: 輻輳を検知したら半分に減らす
+
+■ HTTPの詳細
+
+  HTTP/1.0: リクエストごとにTCP接続を作る(遅い)
+  HTTP/1.1: Keep-Alive(持続接続)、パイプライン、チャンク転送
+  HTTP/2:   多重化(1接続で複数リクエスト並列)、ヘッダー圧縮(HPACK)、サーバープッシュ
+  HTTP/3:   QUIC(UDP基盤)でさらに高速、ヘッドオブラインブロッキング解消
+
+  キャッシュ制御:
+    Cache-Control: public, max-age=86400   (1日間CDNにキャッシュ)
+    Cache-Control: private, no-cache       (毎回再検証)
+    Cache-Control: no-store               (キャッシュ禁止)
+    ETag: "abc123"                         (コンテンツのハッシュ)
+    Last-Modified: Thu, 01 Jan 2026 00:00:00 GMT
+
+    条件付きリクエスト:
+    If-None-Match: "abc123"
+    If-Modified-Since: Thu, 01 Jan 2026 00:00:00 GMT
+    → 変更なし: 304 Not Modified (ボディなし = 高速)
+
+■ WebSocketの仕組み
+
+  HTTP→WebSocketのアップグレード:
+    クライアント:
+    GET /ws HTTP/1.1
+    Upgrade: websocket
+    Connection: Upgrade
+    Sec-WebSocket-Key: dGhlIHNhbXBsZQ==
+
+    サーバー:
+    HTTP/1.1 101 Switching Protocols
+    Upgrade: websocket
+    Connection: Upgrade
+    Sec-WebSocket-Accept: (SHA1ハッシュ)
+
+  フレーム構造: fin bit + opcode + mask + payload
+
+  Node.jsでのWebSocket(ws):
+    import { WebSocketServer } from "ws";
+    const wss = new WebSocketServer({ port: 8080 });
+
+    wss.on("connection", (ws, req) => {
+        ws.on("message", (data) => {
+            // 全クライアントにブロードキャスト
+            wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(data.toString());
+                }
+            });
+        });
+        ws.on("close", () => console.log("切断"));
+        ws.send("接続しました");
+    });
+
+    // クライアント側
+    const ws = new WebSocket("ws://localhost:8080");
+    ws.onopen = () => ws.send("hello");
+    ws.onmessage = e => console.log(e.data);
+    ws.onclose = () => console.log("接続終了");
+
+■ Server-Sent Events(SSE)
+
+  サーバー→クライアントへの一方向ストリーム。
+  WebSocketより単純。HTTPなのでファイアウォールに強い。
+
+  サーバー(Node.js):
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    const send = (data, event) => {
+        if (event) res.write(`event: ${event}\n`);
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    const timer = setInterval(() => send({ time: Date.now() }), 1000);
+    req.on("close", () => clearInterval(timer));
+
+  クライアント:
+    const es = new EventSource("/events");
+    es.onmessage = e => console.log(JSON.parse(e.data));
+    es.addEventListener("customEvent", e => console.log(e.data));
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 10: 設計パターン 実装例
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ Repository パターン
+
+  データアクセスをビジネスロジックから分離する。
+
+  interface UserRepository {
+    findById(id: string): Promise<User | null>;
+    findAll(filter?: UserFilter): Promise<User[]>;
+    save(user: User): Promise<User>;
+    delete(id: string): Promise<void>;
+  }
+
+  class PostgresUserRepository implements UserRepository {
+    constructor(private db: Pool) {}
+
+    async findById(id: string) {
+      const r = await this.db.query("SELECT * FROM users WHERE id=$1", [id]);
+      return r.rows[0] ? toUser(r.rows[0]) : null;
+    }
+
+    async save(user: User) {
+      const r = await this.db.query(
+        `INSERT INTO users (id, name, email) VALUES ($1,$2,$3)
+         ON CONFLICT (id) DO UPDATE SET name=$2, email=$3 RETURNING *`,
+        [user.id, user.name, user.email]
+      );
+      return toUser(r.rows[0]);
+    }
+  }
+
+  // テスト用モック
+  class InMemoryUserRepository implements UserRepository {
+    private store = new Map<string, User>();
+    async findById(id: string) { return this.store.get(id) ?? null; }
+    async save(user: User) { this.store.set(user.id, user); return user; }
+    async delete(id: string) { this.store.delete(id); }
+    async findAll() { return [...this.store.values()]; }
+  }
+
+■ Observer / EventEmitter パターン
+
+  class EventBus {
+    private listeners: Map<string, Set<Function>> = new Map();
+
+    on(event: string, fn: Function) {
+      if (!this.listeners.has(event)) this.listeners.set(event, new Set());
+      this.listeners.get(event)!.add(fn);
+      return () => this.off(event, fn);   // unsubscribe関数を返す
+    }
+
+    off(event: string, fn: Function) {
+      this.listeners.get(event)?.delete(fn);
+    }
+
+    emit(event: string, ...args: any[]) {
+      this.listeners.get(event)?.forEach(fn => fn(...args));
+    }
+
+    once(event: string, fn: Function) {
+      const wrapper = (...args: any[]) => {
+        fn(...args);
+        this.off(event, wrapper);
+      };
+      this.on(event, wrapper);
+    }
+  }
+
+■ Command パターン(Undo/Redo)
+
+  interface Command {
+    execute(): void;
+    undo(): void;
+  }
+
+  class History {
+    private past: Command[] = [];
+    private future: Command[] = [];
+
+    execute(cmd: Command) {
+      cmd.execute();
+      this.past.push(cmd);
+      this.future = [];   // 新しい操作でRedoスタックをクリア
+    }
+
+    undo() {
+      const cmd = this.past.pop();
+      if (cmd) { cmd.undo(); this.future.push(cmd); }
+    }
+
+    redo() {
+      const cmd = this.future.pop();
+      if (cmd) { cmd.execute(); this.past.push(cmd); }
+    }
+  }
+
+  class InsertTextCommand implements Command {
+    constructor(
+      private doc: string[],
+      private pos: number,
+      private text: string
+    ) {}
+    execute() { this.doc.splice(this.pos, 0, this.text); }
+    undo() { this.doc.splice(this.pos, 1); }
+  }
+
+■ Strategy パターン
+
+  type SortStrategy = (arr: number[]) => number[];
+
+  const bubbleSort: SortStrategy = arr => { /* ... */ return arr; };
+  const mergeSort: SortStrategy = arr => { /* ... */ return arr; };
+  const quickSort: SortStrategy = arr => { /* ... */ return arr; };
+
+  class Sorter {
+    constructor(private strategy: SortStrategy) {}
+    setStrategy(s: SortStrategy) { this.strategy = s; }
+    sort(arr: number[]) { return this.strategy([...arr]); }
+  }
+
+  const sorter = new Sorter(quickSort);
+  sorter.sort([5,3,1,4,2]);
+  sorter.setStrategy(mergeSort);  // 実行時に切り替え
+
+■ Middleware パターン(Express風)
+
+  type Handler = (ctx: Context, next: () => Promise<void>) => Promise<void>;
+
+  class App {
+    private middlewares: Handler[] = [];
+
+    use(fn: Handler) { this.middlewares.push(fn); return this; }
+
+    async run(ctx: Context) {
+      let index = 0;
+      const next = async () => {
+        if (index < this.middlewares.length) {
+          await this.middlewares[index++](ctx, next);
+        }
+      };
+      await next();
+    }
+  }
+
+  // 使用例
+  const app = new App();
+  app.use(async (ctx, next) => {
+    console.log("ログ記録 開始");
+    await next();
+    console.log("ログ記録 終了");
+  });
+  app.use(async (ctx, next) => {
+    ctx.user = await auth(ctx.token);
+    if (!ctx.user) { ctx.status = 401; return; }
+    await next();
+  });
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 11: テスト戦略
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ テストピラミッド
+
+        /\
+       /E2E\        少数・高コスト・遅い
+      /------\
+     /統合テスト\     中程度
+    /------------\
+   /ユニットテスト\   大量・低コスト・速い
+  /________________\
+
+  ユニットテスト: 単一の関数・クラスを孤立してテスト
+  統合テスト: 複数コンポーネントの連携(DBアクセスなど含む)
+  E2Eテスト: ブラウザを操作して全体をテスト(Playwright, Cypress)
+
+■ ユニットテストの書き方(Jest)
+
+  // add.test.ts
+  import { add, divide } from "./math";
+
+  describe("add関数", () => {
+    test("正の数を足せる", () => {
+      expect(add(2, 3)).toBe(5);
+    });
+    test("負の数も扱える", () => {
+      expect(add(-1, 1)).toBe(0);
+    });
+  });
+
+  describe("divide関数", () => {
+    test("正常に割り算できる", () => {
+      expect(divide(10, 2)).toBe(5);
+    });
+    test("ゼロ除算でエラー", () => {
+      expect(() => divide(10, 0)).toThrow("ゼロ除算");
+    });
+  });
+
+  // 非同期テスト
+  test("APIからデータを取得", async () => {
+    const data = await fetchUser(1);
+    expect(data).toMatchObject({ id: 1, name: expect.any(String) });
+  });
+
+  // モック
+  jest.mock("./api");
+  const mockFetch = jest.fn().mockResolvedValue({ id: 1, name: "Alice" });
+
+■ Pytestの書き方
+
+  # test_math.py
+  import pytest
+  from math import divide
+
+  def test_正常な割り算():
+      assert divide(10, 2) == 5
+
+  def test_ゼロ除算():
+      with pytest.raises(ZeroDivisionError):
+          divide(10, 0)
+
+  @pytest.mark.parametrize("a,b,expected", [
+      (2, 3, 5),
+      (-1, 1, 0),
+      (0, 0, 0),
+  ])
+  def test_add(a, b, expected):
+      from math import add
+      assert add(a, b) == expected
+
+  # フィクスチャ
+  @pytest.fixture
+  def db():
+      conn = setup_test_db()
+      yield conn
+      conn.rollback()
+      conn.close()
+
+  def test_ユーザー作成(db):
+      user = create_user(db, name="Alice")
+      assert user.id is not None
+
+■ テスト駆動開発(TDD)のサイクル
+
+  Red:   失敗するテストを書く
+  Green: テストが通る最小限のコードを書く
+  Refactor: コードを綺麗にする(テストが通り続けることを確認)
+
+  規則:
+    1. 失敗するテストなしに本番コードを書かない
+    2. コンパイルエラー以上の失敗テストを書かない
+    3. テストが通る以上の本番コードを書かない
+
+■ プロパティベーステスト
+
+  具体例ではなくプロパティ(不変条件)をテストする。
+  ランダムな入力で大量のテストケースを自動生成。
+
+  # Hypothesis(Python)
+  from hypothesis import given, strategies as st
+
+  @given(st.lists(st.integers()))
+  def test_sort_idempotent(lst):
+      assert sorted(sorted(lst)) == sorted(lst)
+
+  @given(st.text(), st.text())
+  def test_concat(s1, s2):
+      result = s1 + s2
+      assert result.startswith(s1)
+      assert result.endswith(s2)
+      assert len(result) == len(s1) + len(s2)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 12: 関数型プログラミング
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 関数型プログラミングの核心概念
+
+  1. 純粋関数: 同じ入力→同じ出力、副作用なし
+  2. 不変性(Immutability): データを変更せず新しいデータを作る
+  3. 参照透明性: 式をその値で置き換えても動作が変わらない
+  4. 高階関数: 関数を引数/戻り値にできる
+  5. 関数合成: 小さな関数を組み合わせて大きな関数を作る
+
+■ ファンクタ・モナドの概念
+
+  ファンクタ(Functor): map できるもの
+    [1,2,3].map(x => x+1)   → リストはファンクタ
+    Optional.map(x => x+1)  → OptionalもファンクタArrayはファンクタ
+
+  モナド(Monad): flatMap/bind できるもの
+    // Promiseはモナド
+    Promise.resolve(1)
+      .then(x => Promise.resolve(x + 1))  // flatMap
+      .then(x => x * 2);
+
+    // 配列のflatMap
+    [1,2,3].flatMap(x => [x, x*2]);  // [1,2,2,4,3,6]
+
+  Maybe/Option モナド(null安全):
+    class Maybe<T> {
+      private constructor(private value: T | null) {}
+      static just<T>(v: T) { return new Maybe(v); }
+      static nothing<T>() { return new Maybe<T>(null); }
+
+      map<U>(fn: (v: T) => U): Maybe<U> {
+        return this.value === null ? Maybe.nothing() : Maybe.just(fn(this.value));
+      }
+      flatMap<U>(fn: (v: T) => Maybe<U>): Maybe<U> {
+        return this.value === null ? Maybe.nothing() : fn(this.value);
+      }
+      getOrElse(def: T): T {
+        return this.value === null ? def : this.value;
+      }
+    }
+
+    const result = Maybe.just(user)
+      .flatMap(u => Maybe.just(u.address))
+      .flatMap(a => Maybe.just(a.city))
+      .map(city => city.toUpperCase())
+      .getOrElse("不明");
+
+■ 関数合成のテクニック
+
+  pipe: 左から右に適用
+    const pipe = (...fns) => x => fns.reduce((v, f) => f(v), x);
+
+    const transform = pipe(
+      x => x.trim(),
+      x => x.toLowerCase(),
+      x => x.replace(/\s+/g, "-")
+    );
+    transform("  Hello World  ");  // "hello-world"
+
+  compose: 右から左に適用
+    const compose = (...fns) => x => fns.reduceRight((v, f) => f(v), x);
+
+  ポイントフリースタイル:
+    // 通常
+    const addTax = price => price * 1.1;
+    const format = price => `¥${price}`;
+    const prices = [100, 200].map(p => format(addTax(p)));
+
+    // ポイントフリー
+    const prices = [100, 200].map(pipe(addTax, format));
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 13: パフォーマンス最適化
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ プロファイリング
+
+  Python:
+    python -m cProfile -o output.prof script.py
+    import cProfile; cProfile.run("slow_func()")
+    # スネークビズで可視化: snakeviz output.prof
+
+  Node.js:
+    node --prof app.js
+    node --prof-process isolate-*.log
+
+  ブラウザ:
+    Chrome DevTools → Performance タブ → 録画
+    Lighthouse: Core Web Vitals(LCP, FID, CLS)を計測
+
+■ データベースパフォーマンス
+
+  スロークエリのログ収集:
+    -- PostgreSQL
+    SET log_min_duration_statement = 1000;  -- 1秒以上のクエリをログ
+
+  接続プーリング:
+    アプリ起動時にDB接続を複数確保しておき使い回す。
+    毎回接続すると100〜1000msかかる → プールなら<1ms。
+    PostgreSQL: PgBouncer, pg Pool
+
+  マテリアライズドビュー:
+    重いSELECTの結果を保存しておき、定期的に更新。
+    CREATE MATERIALIZED VIEW monthly_sales AS
+    SELECT DATE_TRUNC('month', created_at) as month, SUM(total)
+    FROM orders GROUP BY 1;
+
+    REFRESH MATERIALIZED VIEW CONCURRENTLY monthly_sales;  -- ロックなしで更新
+
+■ キャッシング戦略
+
+  キャッシュの種類:
+    ブラウザキャッシュ: Cache-Controlヘッダーで制御
+    CDNキャッシュ: エッジサーバーでキャッシュ(CloudFlare等)
+    アプリキャッシュ(メモリ): Node.jsプロセス内のMap
+    分散キャッシュ: Redis(複数サーバー間で共有)
+    DBキャッシュ: クエリキャッシュ、バッファキャッシュ
+
+  Redisパターン:
+    // Cache-Aside(最も一般的)
+    async function getUser(id) {
+      const cached = await redis.get(`user:${id}`);
+      if (cached) return JSON.parse(cached);
+
+      const user = await db.findUser(id);
+      await redis.setex(`user:${id}`, 3600, JSON.stringify(user));  // 1時間TTL
+      return user;
+    }
+
+    // Write-Through: 更新時に同時にキャッシュも更新
+    async function updateUser(id, data) {
+      const user = await db.updateUser(id, data);
+      await redis.setex(`user:${id}`, 3600, JSON.stringify(user));
+      return user;
+    }
+
+  キャッシュ無効化(最も難しい問題):
+    タグベース: ユーザーIDに紐づく全キャッシュを一括削除
+    TTLのみ: シンプルだが最大TTL秒間古いデータが見える
+    イベント駆動: データ更新時にキャッシュを即時削除
+
+  スタンピード問題: 大量リクエストがキャッシュミスした時に同時にDB叩く
+    対策: ミューテックスで1つだけDBアクセスして他は待機
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHAPTER 14: 実践的な開発テクニック
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ コードレビューで見るべき点
+
+  1. ロジックの正しさ: 要件を満たしているか
+  2. エッジケース: 空リスト、null、巨大な入力、並行処理
+  3. セキュリティ: SQLインジェクション、入力バリデーション
+  4. パフォーマンス: N+1問題、大量データでの動作
+  5. 可読性: 変数名・関数名・コメント
+  6. テスト: 十分なカバレッジか、テストが意味あるか
+  7. DRY: 重複コードがないか
+  8. エラーハンドリング: 例外を握りつぶしていないか
+
+■ よく使うデバッグテクニック
+
+  バイナリサーチデバッグ:
+    問題を半分に絞り込んでいく。
+    コード量が多い場合: 中間にbreakpointを置く
+    コミット履歴の場合: git bisect を使う
+
+  git bisect:
+    git bisect start
+    git bisect bad HEAD       # 現在は壊れている
+    git bisect good v1.0.0    # v1.0.0は正常だった
+    # Gitが自動的に中間コミットをcheckout → テスト → good/bad を繰り返す
+    git bisect good / git bisect bad
+    # 自動で原因コミットを特定
+
+  ゴムアヒルデバッグ:
+    ゴムアヒルに向かってコードを1行ずつ説明する。
+    説明しながら問題に気づくことが多い。
+
+■ 正規表現の実践レシピ
+
+  URLからドメイン抽出:
+    /https?:\/\/([^\/]+)/
+
+  メールのローカルパート:
+    /^([a-zA-Z0-9._%+\-]+)@/
+
+  HTMLタグを除去:
+    /<[^>]+>/g
+
+  全角→半角数字:
+    s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+
+  クレジットカード番号マスク:
+    "4111111111111111".replace(/\d(?=\d{4})/g, "*")
+    // "************1111"
+
+  Markdownの見出し抽出:
+    /^#{1,6}\s+(.+)$/gm
+
+■ 便利なワンライナー集(Python)
+
+  ファイルの各行に行番号を付与:
+    [f"{i+1}: {line}" for i, line in enumerate(open("file.txt"))]
+
+  CSVの特定列を抽出:
+    import csv; [row[2] for row in csv.reader(open("data.csv"))]
+
+  JSON整形:
+    python -m json.tool ugly.json
+
+  HTTP サーバー起動:
+    python -m http.server 8080
+
+  ディレクトリのファイルサイズ一覧:
+    import os; [(f, os.path.getsize(f)) for f in os.listdir(".")]
+
+  文字列の出現回数カウント:
+    from collections import Counter; Counter(open("file.txt").read().split())
+
+  二つのリストをzip+dictに変換:
+    dict(zip(keys, values))
+
+  巨大なリストをN個ずつのチャンクに分割:
+    [lst[i:i+N] for i in range(0, len(lst), N)]
+
+  フラット化:
+    [x for sub in nested for x in sub]
+    # またはlist(itertools.chain.from_iterable(nested))
+
+■ 便利なワンライナー集(JavaScript)
+
+  配列の重複削除:
+    [...new Set(arr)]
+
+  配列をオブジェクトに変換:
+    Object.fromEntries(arr.map(item => [item.id, item]))
+
+  ディープコピー(structuredClone, 現代的):
+    const copy = structuredClone(obj);
+
+  配列をN個ずつのチャンクに:
+    arr.reduce((chunks, item, i) =>
+      (i % N === 0 ? chunks.push([item]) : chunks.at(-1).push(item), chunks), [])
+
+  オブジェクトの特定キーだけ取得:
+    const pick = (obj, keys) => Object.fromEntries(
+      keys.filter(k => k in obj).map(k => [k, obj[k]])
+    );
+
+  配列のグループ化(Object.groupBy - 最新JS):
+    Object.groupBy(people, p => p.dept);
+
+  Promise の直列実行:
+    tasks.reduce((p, task) => p.then(task), Promise.resolve());
+
+  URL クエリパラメータを解析:
+    Object.fromEntries(new URLSearchParams(location.search))
+
+  数値を3桁区切り:
+    (1234567).toLocaleString("ja-JP")  // "1,234,567"
+
+  指定範囲の乱数:
+    Math.floor(Math.random() * (max - min + 1)) + min;
+
+================================================================
+  おわり - 第2巻
+  深く学ぶほど、知らないことが増える。それが楽しい。
+================================================================

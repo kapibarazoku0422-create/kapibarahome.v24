@@ -1,0 +1,35 @@
+{
+  "name": "kapibara-proxy",
+  "version": "1.0.0",
+  "description": "カピバラproxy - URL rewriting web proxy (Proprietary, All Rights Reserved)",
+  "license": "SEE LICENSE IN LICENSE",
+  "private": true,
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "build": "node build.js",
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
+    "axios": "^1.13.5",
+    "bgutils-js": "^3.2.0",
+    "body-parser": "^2.2.2",
+    "canvas": "^3.2.1",
+    "commander": "^14.0.3",
+    "express": "^5.2.1",
+    "jsdom": "^27.4.0",
+    "monaco-editor": "^0.55.1",
+    "pg": "^8.22.0",
+    "proxy-agent": "^6.5.0",
+    "undici": "^7.3.0",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "terser": "^5.48.0"
+  }
+}
