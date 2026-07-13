@@ -375,6 +375,7 @@ const YTINFO_INFLIGHT = new Map(); // vid -> Promise（同一動画の重複起�
 const YTINFO_CACHE_MAX = 500; // メモリ肥大防止（public エンドポイントの資源枯渇対策）
 const YTSEARCH_CACHE = new Map(); // normalized query -> { json, expires }
 const YTSEARCH_CACHE_MAX = 120;
+const YTSHORTS_CACHE = new Map();
 
 function cacheYtInfo(vid, payload, ttlMs) {
   // 古いエントリを間引いてから追加（簡易LRU: 挿入順）
@@ -571,6 +572,36 @@ function decompress(buf, enc) {
     if (enc === 'br')      return zlib.brotliDecompressSync(buf);
   } catch { /* fallthrough */ }
   return buf;
+}
+
+// YouTube has used multiple nested renderers for Shorts. Walk the full response
+// so a layout change does not silently break discovery.
+function collectShortVideos(node, videos, seen) {
+  if (!node || typeof node !== 'object' || videos.length >= 24) return;
+  const reel = node.reelItemRenderer;
+  const lockup = node.shortsLockupViewModel;
+  const regular = node.videoRenderer;
+  const videoId = reel?.videoId
+    || lockup?.onTap?.innertubeCommand?.reelWatchEndpoint?.videoId
+    || lockup?.onTap?.innertubeCommand?.watchEndpoint?.videoId
+    || (typeof lockup?.entityId === 'string' ? lockup.entityId.match(/([A-Za-z0-9_-]{11})$/)?.[1] : '')
+    || regular?.videoId;
+  if (videoId && /^[A-Za-z0-9_-]{11}$/.test(videoId) && !seen.has(videoId)) {
+    seen.add(videoId);
+    videos.push({
+      videoId,
+      title: reel?.headline?.simpleText || reel?.headline?.runs?.[0]?.text
+        || lockup?.overlayMetadata?.primaryText?.content
+        || regular?.title?.runs?.[0]?.text || regular?.title?.simpleText || '',
+      author: reel?.channelName?.simpleText
+        || lockup?.overlayMetadata?.secondaryText?.content
+        || regular?.ownerText?.runs?.[0]?.text || '',
+      thumbToken: sealImg(`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`),
+      lengthSeconds: 0,
+      viewCount: 0,
+    });
+  }
+  for (const value of Object.values(node)) collectShortVideos(value, videos, seen);
 }
 
 const server = http.createServer(async (req, res) => {
@@ -1143,7 +1174,17 @@ Googleでログイン
   // YouTube Shorts API (Invidious 経由)
   if (url.startsWith('/api/ytshorts')) {
     res.setHeader('access-control-allow-origin', '*');
-    const q = new URL(url, 'http://x').searchParams.get('q');
+    const q = new URL(url, 'http://x').searchParams.get('q') || '';
+    const cacheKey = q.trim().toLocaleLowerCase('ja-JP').slice(0, 120) || '__default__';
+    const cached = YTSHORTS_CACHE.get(cacheKey);
+    if (cached && cached.expires > Date.now()) {
+      res.writeHead(200, {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'private, max-age=60, stale-while-revalidate=120',
+        'x-kapibara-cache': 'HIT',
+      });
+      return res.end(cached.json);
+    }
     try {
       // Shorts検索: YouTubeの shorts フィルタ(EgIQAQ==はショートのsp値: sp=EgQKAhAB)
       const spShort = 'EgQKAhAB%3D%3D'; // type=short filter
@@ -1166,41 +1207,20 @@ Googleでログイン
       const match = html.match(/var ytInitialData\s*=\s*(\{.+?\});\s*(?:var |<\/script>)/s);
       if (!match) throw new Error('ytInitialData not found');
       const ytData = JSON.parse(match[1]);
-      const section = ytData?.contents
-        ?.twoColumnSearchResultsRenderer?.primaryContents
-        ?.sectionListRenderer?.contents ?? [];
       const videos = [];
-      for (const s of section) {
-        const items = s?.itemSectionRenderer?.contents ?? [];
-        for (const item of items) {
-          // Shorts は reelItemRenderer または videoRenderer で来る
-          const reel = item?.reelItemRenderer;
-          const v = item?.videoRenderer;
-          if (reel?.videoId) {
-            videos.push({
-              videoId: reel.videoId,
-              title: reel.headline?.simpleText || reel.headline?.runs?.[0]?.text || '',
-              author: reel.channelName?.simpleText || '',
-              thumbToken: sealImg(`https://i.ytimg.com/vi/${reel.videoId}/hqdefault.jpg`),
-              lengthSeconds: 0,
-              viewCount: 0,
-            });
-          } else if (v?.videoId) {
-            videos.push({
-              videoId: v.videoId,
-              title: v.title?.runs?.[0]?.text || v.title?.simpleText || '',
-              author: v.ownerText?.runs?.[0]?.text || '',
-              thumbToken: sealImg(`https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`),
-              lengthSeconds: 0,
-              viewCount: 0,
-            });
-          }
-          if (videos.length >= 24) break;
-        }
-        if (videos.length >= 24) break;
+      collectShortVideos(ytData, videos, new Set());
+      if (!videos.length) throw new Error('Shorts data not found');
+      const json = JSON.stringify(videos);
+      if (YTSHORTS_CACHE.size >= YTSEARCH_CACHE_MAX) {
+        YTSHORTS_CACHE.delete(YTSHORTS_CACHE.keys().next().value);
       }
-      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
-      return res.end(JSON.stringify(videos));
+      YTSHORTS_CACHE.set(cacheKey, { json, expires: Date.now() + 2 * 60 * 1000 });
+      res.writeHead(200, {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'private, max-age=60, stale-while-revalidate=120',
+        'x-kapibara-cache': 'MISS',
+      });
+      return res.end(json);
     } catch (e) {
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
       return res.end(JSON.stringify({ error: e.message }));

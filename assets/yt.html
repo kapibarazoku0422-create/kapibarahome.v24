@@ -417,7 +417,8 @@ function switchNav(mode) {
 }
 
 /* ─ Shorts ─ */
-function playShort(id) { location.href = '/ytw?v='+btoa(id)+'&short=1'; }
+// 通常動画と同じ暗号化ストリーム/HLS経路を使う。
+function playShort(id) { playVideo(id); }
 function renderShorts(videos) {
   var grid = document.getElementById('shortsGrid');
   grid.innerHTML = '';
