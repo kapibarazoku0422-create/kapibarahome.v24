@@ -1157,7 +1157,8 @@ Googleでログイン
     }
     try {
       // Shorts検索: YouTubeの shorts フィルタ(EgIQAQ==はショートのsp値: sp=EgQKAhAB)
-      const searchQ = q ? `${q} shorts` : '#shorts';
+      // 入力語を改変すると日本語固有名詞の関連度が崩れるため、そのまま渡す。
+      const searchQ = q || '#shorts';
       const videos = await raceInv(async host => {
         try {
           const endpoint = `${host}/api/v1/search?q=${encodeURIComponent(searchQ)}&type=video&duration=short&sort_by=relevance`;

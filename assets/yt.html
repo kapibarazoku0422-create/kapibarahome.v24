@@ -334,7 +334,17 @@ function doSearch() {
   var q = document.getElementById('q').value.trim();
   if (!q) return;
   hideSuggest();
+  if (currentMode === 'shorts') {
+    addSearchHist(q);
+    renderHistChips();
+    loadShorts();
+    return;
+  }
   currentMode = 'search';
+  document.getElementById('tab-trending').classList.remove('active');
+  document.getElementById('tab-shorts').classList.remove('active');
+  document.getElementById('grid').style.display = '';
+  document.getElementById('shortsGrid').style.display = 'none';
   document.getElementById('grid').innerHTML = '';
   setSectionTitle('');
   setStatus('<div class="spinner"></div>検索中…', false);
@@ -449,6 +459,7 @@ function loadShorts() {
     .then(function(data) {
       if (data.error || !data.length) { setStatus('Shortsを取得できませんでした', true); return; }
       renderShorts(data);
+      setSectionTitle(q ? '▶ 「'+q+'」のShorts検索結果' : '▶ Shorts');
     })
     .catch(function(){ setStatus('Shortsの読み込みに失敗しました', true); });
 }
