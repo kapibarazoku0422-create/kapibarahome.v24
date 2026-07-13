@@ -120,6 +120,14 @@ export function makeHomePage(encodeProxyUrl) {
     </span>
     <span style="margin-left:auto;color:#475569;font-size:18px">▶</span>
   </a>
+  <a class="game-link" href="https://tawadhifens.onrender.com/" target="_blank" rel="noopener" style="border-color:#5b3b83">
+    <span class="game-icon">🏰</span>
+    <span class="game-text">
+      <span class="game-title" style="color:#c4a7ff">絵文字タワーディフェンス</span>
+      <span class="game-desc">絵文字のタワーで敵を迎え撃つタワーディフェンス</span>
+    </span>
+    <span style="margin-left:auto;color:#475569;font-size:18px">▶</span>
+  </a>
   <a class="game-link" href="/yt" style="border-color:#2d1a1a">
     <span class="game-icon">▶️</span>
     <span class="game-text">
