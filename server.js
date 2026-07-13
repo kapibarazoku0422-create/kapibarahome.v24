@@ -360,6 +360,10 @@ const HOP_BY_HOP = new Set([
   'content-length', 'content-security-policy', 'content-security-policy-report-only',
   'x-frame-options', 'strict-transport-security', 'set-cookie',
 ]);
+const URL_LEAK_HEADERS = new Set([
+  'location', 'content-location', 'link', 'refresh', 'report-to', 'nel',
+  'x-pingback', 'source-map', 'sourcemap',
+]);
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 
@@ -1785,13 +1789,27 @@ Googleでログイン
     });
     return res.end(CLIENT_SCRIPT);
   }
-  // 封印エンドポイント
-  if (url.startsWith('/__seal?')) {
-    const u = new URL(url, 'http://x').searchParams.get('u');
+  // 封印エンドポイント。元URLをアクセスログやアドレスバーへ出さないためPOSTのみ。
+  if (url === '/__seal' && req.method === 'POST') {
+    const chunks = []; let size = 0;
+    for await (const c of req) {
+      size += c.length;
+      if (size > 64 * 1024) { res.writeHead(413); return res.end(''); }
+      chunks.push(c);
+    }
+    let spec;
+    try { spec = JSON.parse(Buffer.concat(chunks).toString()); } catch { spec = {}; }
+    let u = typeof spec.value === 'string' ? spec.value.trim() : '';
+    if (u && !/^https?:\/\//i.test(u)) {
+      if (spec.base) {
+        try { u = new URL(u, unseal(spec.base)).href; } catch { u = ''; }
+      } else {
+        u = 'https://' + u;
+      }
+    }
     res.writeHead(200, {
       'content-type': 'text/plain; charset=utf-8',
-      'access-control-allow-origin': '*',
-      'cache-control': 'public, max-age=300',
+      'cache-control': 'no-store',
     });
     if (!u || !/^https?:\/\//i.test(u)) return res.end('');
     try { return res.end(seal(u)); } catch { return res.end(''); }
@@ -1800,14 +1818,19 @@ Googleでログイン
   // ── /__seal/batch: 複数URLを一括封印（クライアントの同期XHR直列を解消）─
   if (url === '/__seal/batch' && req.method === 'POST') {
     const chunks = []; for await (const c of req) chunks.push(c);
-    let urls;
-    try { urls = JSON.parse(Buffer.concat(chunks).toString()); } catch { res.writeHead(400); return res.end('[]'); }
-    if (!Array.isArray(urls)) { res.writeHead(400); return res.end('{}'); }
+    let specs;
+    try { specs = JSON.parse(Buffer.concat(chunks).toString()); } catch { res.writeHead(400); return res.end('{}'); }
+    if (!Array.isArray(specs)) { res.writeHead(400); return res.end('{}'); }
     const out = {};
-    for (const u of urls.slice(0, 200)) { // 最大200URL/バッチ
-      if (typeof u === 'string' && /^https?:\/\//i.test(u)) {
-        try { out[u] = seal(u); } catch { out[u] = null; }
+    for (const spec of specs.slice(0, 200)) {
+      if (!spec || typeof spec.key !== 'string' || typeof spec.value !== 'string') continue;
+      let u = spec.value;
+      if (!/^https?:\/\//i.test(u) && spec.base) {
+        try { u = new URL(u, unseal(spec.base)).href; } catch { u = ''; }
       }
+      if (/^https?:\/\//i.test(u)) {
+        try { out[spec.key] = seal(u); } catch { out[spec.key] = null; }
+      } else out[spec.key] = null;
     }
     res.writeHead(200, {
       'content-type': 'application/json; charset=utf-8',
@@ -1817,40 +1840,10 @@ Googleでログイン
     return res.end(JSON.stringify(out));
   }
 
-  // フォーム送信用リダイレクタ: /go?url=...
+  // 旧式の生URLクエリは元URL露出防止のため廃止。
   if (url.startsWith('/go?')) {
-    const q = new URL(url, 'http://localhost').searchParams.get('url');
-    if (q) {
-      let target = q.trim();
-      if (!/^https?:\/\//i.test(target)) target = 'https://' + target;
-      // YouTube URL → 専用プレイヤー or 検索ページへ
-      try {
-        const u = new URL(target);
-        const host = u.hostname.replace(/^(www\.|m\.)/, '');
-        if (host === 'youtu.be') {
-          const id = u.pathname.slice(1).split(/[/?#]/)[0];
-          if (id) { res.writeHead(302, { location: '/ytw?v=' + Buffer.from(id).toString('base64') }); return res.end(); }
-        }
-        if (host === 'youtube.com') {
-          if (u.pathname === '/watch') {
-            const vid = u.searchParams.get('v');
-            if (vid) { res.writeHead(302, { location: '/ytw?v=' + Buffer.from(vid).toString('base64') }); return res.end(); }
-          }
-          // Shorts URL: /shorts/<videoId>
-          const shortsMatch = u.pathname.match(/^\/shorts\/([a-zA-Z0-9_-]{6,12})/);
-          if (shortsMatch) {
-            res.writeHead(302, { location: '/ytw?v=' + Buffer.from(shortsMatch[1]).toString('base64') + '&short=1' });
-            return res.end();
-          }
-          const sq = u.searchParams.get('search_query') || u.searchParams.get('q');
-          if (u.pathname === '/results' && sq) { res.writeHead(302, { location: '/yt?q=' + encodeURIComponent(sq) }); return res.end(); }
-          res.writeHead(302, { location: '/yt' }); return res.end();
-        }
-      } catch {}
-      res.writeHead(302, { location: encodeProxyUrl(target) });
-      return res.end();
-    }
-    res.writeHead(400); return res.end('missing url');
+    res.writeHead(410, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+    return res.end('This URL format is no longer supported.');
   }
 
   // プロキシ本体
@@ -1859,7 +1852,7 @@ Googleでログイン
   }
 
   res.writeHead(404, { 'content-type': 'text/plain' });
-  res.end('Not found. Use ' + PREFIX + '<url>');
+  res.end('Not found.');
   } catch (e) {
     console.error('[handler]', e.message);
     if (!res.headersSent) {
@@ -1987,7 +1980,7 @@ async function handleProxy(req, res) {
       });
     } catch (e) {
       res.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
-      return res.end('Upstream error: ' + e.message);
+      return res.end('Upstream request failed');
     }
 
     lastStatus = upstream.statusCode;
@@ -2041,7 +2034,7 @@ async function handleProxy(req, res) {
   // レスポンスヘッダ構築
   const outHeaders = {};
   for (const [k, v] of Object.entries(h)) {
-    if (HOP_BY_HOP.has(k.toLowerCase())) continue;
+    if (HOP_BY_HOP.has(k.toLowerCase()) || URL_LEAK_HEADERS.has(k.toLowerCase())) continue;
     outHeaders[k] = v;
   }
   // リダイレクト追跡中に蓄積したクッキー + 最終ホップのクッキーをまとめて返す

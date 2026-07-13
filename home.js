@@ -277,10 +277,17 @@ export function makeHomePage(encodeProxyUrl) {
     if (!val) return;
     if (val.indexOf('http://') !== 0 && val.indexOf('https://') !== 0) val = 'https://' + val;
     if (tryYouTube(val)) return;
-    fetch('/__seal?u=' + encodeURIComponent(val))
+    fetch('/__seal', {
+      method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({value:val})
+    })
       .then(function(r){return r.text();})
-      .then(function(token){ location.href = token ? '/p/'+token : '/go?url='+encodeURIComponent(val); })
-      .catch(function(){ location.href = '/go?url=' + encodeURIComponent(val); });
+      .then(function(token){
+        if (!token) throw new Error('URLを保護できませんでした');
+        location.href = '/p/' + token;
+      })
+      .catch(function(){ alert('URLを開けませんでした。もう一度お試しください。'); });
   });
 
 })();

@@ -6,7 +6,7 @@
 (function(){
   var PREFIX='/p/';
   var me=document.currentScript;
-  var BASE=(me&&me.getAttribute('data-base'))||location.href;
+  var BASE_TOKEN=(me&&me.getAttribute('data-base-token'))||'';
 
   // ----- シールキャッシュ + 非同期バッチキュー ----------------------------
   var sealCache=new Map();          // url → token | null
@@ -15,7 +15,7 @@
 
   function flushBatch(){
     if(!batchQueue.size) return;
-    var urls=Array.from(batchQueue.keys());
+    var keys=Array.from(batchQueue.keys());
     var snap=new Map(batchQueue);
     batchQueue.clear(); batchTimer=null;
     var xhr=new XMLHttpRequest();
@@ -24,47 +24,55 @@
     xhr.onload=function(){
       var result={};
       try{ result=JSON.parse(xhr.responseText); }catch(e){}
-      urls.forEach(function(u){
-        var tok=result[u]||null;
-        sealCache.set(u,tok);
-        var cbs=snap.get(u); if(cbs) cbs.forEach(function(fn){ fn(tok); });
+      keys.forEach(function(key){
+        var tok=result[key]||null;
+        sealCache.set(key,tok);
+        var entry=snap.get(key); if(entry) entry.cbs.forEach(function(fn){ fn(tok); });
       });
     };
     xhr.onerror=function(){
-      urls.forEach(function(u){
-        sealCache.set(u,null);
-        var cbs=snap.get(u); if(cbs) cbs.forEach(function(fn){ fn(null); });
+      keys.forEach(function(key){
+        sealCache.set(key,null);
+        var entry=snap.get(key); if(entry) entry.cbs.forEach(function(fn){ fn(null); });
       });
     };
-    xhr.send(JSON.stringify(urls));
+    xhr.send(JSON.stringify(keys.map(function(key){ return snap.get(key).spec; })));
+  }
+
+  function sealSpec(u){
+    var value=''+u;
+    return {key:(/^https?:\/\//i.test(value)?'a:':'r:')+value,value:value,base:BASE_TOKEN};
   }
 
   // 非同期シール（fetch/location等の非ブロッキング系で使う）
-  function sealAsync(abs){
+  function sealAsync(value){
+    var spec=sealSpec(value),key=spec.key;
     return new Promise(function(resolve){
-      var hit=sealCache.get(abs);
+      var hit=sealCache.get(key);
       if(hit!==undefined){ resolve(hit); return; }
-      var q=batchQueue.get(abs);
-      if(q){ q.push(resolve); }
-      else{ batchQueue.set(abs,[resolve]); }
+      var q=batchQueue.get(key);
+      if(q){ q.cbs.push(resolve); }
+      else{ batchQueue.set(key,{spec:spec,cbs:[resolve]}); }
       if(!batchTimer) batchTimer=setTimeout(flushBatch,8);
     });
   }
 
   // 同期シール（XHR.open傍受など同期必須の箇所専用）
   // DOMContentLoadedのpre-sealで多くはキャッシュ済みになるため実際の同期XHRは激減する
-  function sealSync(abs){
-    var hit=sealCache.get(abs);
+  function sealSync(value){
+    var spec=sealSpec(value),key=spec.key;
+    var hit=sealCache.get(key);
     if(hit!==undefined) return hit;
     var token=null;
     try{
       var x=new XMLHttpRequest();
-      x.open('GET','/__seal?u='+encodeURIComponent(abs),false);
-      x.send();
+      x.open('POST','/__seal',false);
+      x.setRequestHeader('content-type','application/json');
+      x.send(JSON.stringify(spec));
       if(x.status===200&&x.responseText) token=x.responseText;
     }catch(e){}
     if(sealCache.size>8000) sealCache.clear();
-    sealCache.set(abs,token); return token;
+    sealCache.set(key,token); return token;
   }
 
   function isProxied(u){
@@ -73,7 +81,7 @@
   function toAbs(u){
     if(u==null) return null; u=''+u;
     if(/^(data:|blob:|javascript:|mailto:|tel:|about:|#)/i.test(u)) return null;
-    try{ return new URL(u,BASE).href; }catch(e){ return null; }
+    return u;
   }
   function toProxySync(u){
     if(u==null) return u;
@@ -81,7 +89,7 @@
     if(isProxied(s)) return s;
     var abs=toAbs(s); if(abs==null) return u;
     var t=sealSync(abs);
-    return t? PREFIX+t : u;
+    return t? PREFIX+t : 'about:blank';
   }
   async function toProxyAsync(u){
     if(u==null) return u;
@@ -89,7 +97,7 @@
     if(isProxied(s)) return s;
     var abs=toAbs(s); if(abs==null) return u;
     var t=await sealAsync(abs);
-    return t? PREFIX+t : u;
+    return t? PREFIX+t : 'about:blank';
   }
   window.__toProxy=toProxySync;
 
@@ -132,14 +140,16 @@
           var abs=toAbs(input);
           if(abs&&!isProxied(input)){
             return sealAsync(abs).then(function(t){
-              return _fetch.call(window, t? PREFIX+t : input, init);
+              if(!t) throw new Error('Proxy URL protection failed');
+              return _fetch.call(window,PREFIX+t,init);
             });
           }
         } else if(input&&input.url&&!isProxied(input.url)){
           var abs2=toAbs(input.url);
           if(abs2){
             return sealAsync(abs2).then(function(t){
-              return _fetch.call(window, t? new Request(PREFIX+t,input) : input, init);
+              if(!t) throw new Error('Proxy URL protection failed');
+              return _fetch.call(window,new Request(PREFIX+t,input),init);
             });
           }
         }
@@ -170,7 +180,7 @@
           if(t){
             var scheme=location.protocol==='https:'?'wss:':'ws:';
             url=scheme+'//'+location.host+PREFIX+t;
-          }
+          } else url=(location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/__blocked';
         }
       }catch(e){}
       return protocols!==undefined?new _WS(url,protocols):new _WS(url);
@@ -196,7 +206,6 @@
         if(abs){
           sealAsync(abs).then(function(t){
             if(t) _winOpen.call(window,PREFIX+t,target,features);
-            else  _winOpen.call(window,u,target,features);
           });
           return null;
         }
@@ -217,12 +226,12 @@
             var abs=toAbs(u);
             if(abs&&!isProxied(u)){
               sealAsync(abs).then(function(t){
-                _locDesc.set.call(self, t? PREFIX+t : u);
+                if(t) _locDesc.set.call(self,PREFIX+t);
               });
               return;
             }
           }catch(e){}
-          return _locDesc.set.call(this,u);
+          return;
         },
         configurable:true
       });
@@ -233,7 +242,7 @@
     location.assign=function(u){
       var abs=toAbs(u);
       if(abs&&!isProxied(u)){
-        sealAsync(abs).then(function(t){ _la(t? PREFIX+t : u); });
+        sealAsync(abs).then(function(t){ if(t) _la(PREFIX+t); });
         return;
       }
       return _la(u);
@@ -244,7 +253,7 @@
     location.replace=function(u){
       var abs=toAbs(u);
       if(abs&&!isProxied(u)){
-        sealAsync(abs).then(function(t){ _lr(t? PREFIX+t : u); });
+        sealAsync(abs).then(function(t){ if(t) _lr(PREFIX+t); });
         return;
       }
       return _lr(u);
@@ -272,6 +281,7 @@
       if(abs){
         var t=sealSync(abs);
         if(t) form.action=PREFIX+t;
+        else e.preventDefault();
       }
     }
   },true);
@@ -289,7 +299,7 @@
       if(!abs) return;
       e.preventDefault();
       sealAsync(abs).then(function(t){
-        location.href=t? PREFIX+t : href;
+        if(t) location.href=PREFIX+t;
       });
     }catch(ex){}
   },true);
@@ -305,7 +315,7 @@
       if(url&&!isProxied(url)){
         e.stopImmediatePropagation(); e.preventDefault();
         var abs=toAbs(url);
-        if(abs) sealAsync(abs).then(function(t){ history.pushState({},'',t? PREFIX+t : abs); });
+        if(abs) sealAsync(abs).then(function(t){ if(t) history.pushState({},'',PREFIX+t); });
       }
     }catch(ex){}
   },true);
@@ -330,7 +340,7 @@
       if(st&&st.indexOf('url(')!==-1){
         var fixed=st.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/g,function(m,q,u){
           if(isProxied(u)||/^(data:|blob:)/i.test(u)) return m;
-          var t=sealSync(u); return t?'url('+q+PREFIX+t+q+')':m;
+          var t=sealSync(u); return 'url('+q+(t?PREFIX+t:'about:blank')+q+')';
         });
         if(fixed!==st) el.setAttribute('style',fixed);
       }
@@ -341,7 +351,7 @@
     Promise.all(urls.map(sealAsync)).then(function(tokens){
       pending.forEach(function(p,i){
         var t=tokens[i];
-        if(t) p.el.setAttribute(p.attr,PREFIX+t);
+        p.el.setAttribute(p.attr,t?PREFIX+t:'about:blank');
       });
     });
   }
@@ -373,7 +383,7 @@
       if(!u||isProxied(u)) return;
       if(/^(data:|blob:|javascript:|mailto:|tel:|about:|#)/i.test(u)) return;
       var abs=toAbs(u);
-      if(abs&&!sealCache.has(abs)&&!seen.has(abs)){ seen.add(abs); sealAsync(abs); }
+      if(abs){ var spec=sealSpec(abs); if(!sealCache.has(spec.key)&&!seen.has(spec.key)){ seen.add(spec.key); sealAsync(abs); } }
     }
     try{
       document.querySelectorAll('[href],[src],[action],[poster]').forEach(function(el){

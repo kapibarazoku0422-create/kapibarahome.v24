@@ -36,7 +36,7 @@ function toProxy(u, base, cache) {
   if (s !== '' && !SKIP_RE.test(s) && !s.startsWith(PREFIX)) {
     try {
       out = encodeProxyUrl(new URL(s, base).href);
-    } catch { /* keep original */ }
+    } catch { out = 'about:blank'; }
   }
   cache.set(u, out);
   return out;
@@ -99,7 +99,7 @@ export function rewriteHtml(html, base) {
   html = html.replace(STYLE_BLOCK_RE, (m, open, css, close) => open + rewriteCssWith(css, base, cache) + close);
 
   // クライアント傍受スクリプトを注入
-  const inject = `<script src="/__proxy__/client.js" data-base="${base}"></script>`;
+  const inject = `<script src="/__proxy__/client.js" data-base-token="${seal(base)}"></script>`;
   if (/<head[^>]*>/i.test(html)) {
     html = html.replace(/<head[^>]*>/i, m => m + inject);
   } else if (/<html[^>]*>/i.test(html)) {
