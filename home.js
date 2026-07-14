@@ -66,7 +66,8 @@ export function makeHomePage(encodeProxyUrl) {
   .ai-wrap{margin-top:16px;width:min(640px,90vw)}
   .ai-card{background:#1e293b;border:1px solid #334155;border-radius:16px;overflow:hidden}
   .ai-head{display:flex;align-items:center;gap:10px;padding:16px 20px;
-           border-bottom:1px solid #334155;cursor:pointer;user-select:none}
+           border:0;border-bottom:1px solid #334155;cursor:pointer;user-select:none;
+           width:100%;background:transparent;color:inherit;text-align:left;font:inherit;touch-action:manipulation}
   .ai-head-title{font-weight:700;font-size:15px}
   .ai-head-desc{font-size:12px;color:#64748b;margin-left:auto}
   .ai-body{padding:16px 20px;display:none}
@@ -164,11 +165,11 @@ export function makeHomePage(encodeProxyUrl) {
   <!-- AIコーナー -->
   <div class="ai-wrap">
     <div class="ai-card">
-      <div class="ai-head" id="aiHead">
+      <button class="ai-head" id="aiHead" type="button" aria-expanded="false" aria-controls="aiBody">
         <span style="font-size:22px">🤖</span>
         <span class="ai-head-title">AIコーナー <span style="font-size:11px;padding:2px 7px;border-radius:99px;background:#0a2a1a;border:1px solid #166534;color:#4ade80;margin-left:4px;vertical-align:middle">Groq</span></span>
         <span class="ai-head-desc">クリックで開く</span>
-      </div>
+      </button>
       <div class="ai-body" id="aiBody">
         <div class="ai-msgs" id="aiMsgs">
           <div class="ai-msg ai">🦫 なんでも聞いてね！勉強のこと、なんでもOKだよ</div>
@@ -191,6 +192,14 @@ export function makeHomePage(encodeProxyUrl) {
     </a>
   </div>
 
+  <div class="ed-wrap">
+    <a class="ed-card" href="/tool" style="border-color:#0e7490;background:linear-gradient(135deg,#172554,#0f172a)">
+      <span style="font-size:22px">🧰</span>
+      <span class="ed-head-title" style="color:#67e8f9">ミニツール<span class="ed-badge" style="border-color:#0891b2;color:#67e8f9">10 TOOLS</span></span>
+      <span class="ed-head-desc">便利ツールを開く →</span>
+    </a>
+  </div>
+
   <footer>streaming · gzip/br · HTML/CSS rewrite · dynamic intercept</footer>
 <script>
 /* ── AIコーナー ─────────────────────────────── */
@@ -204,6 +213,7 @@ export function makeHomePage(encodeProxyUrl) {
 
   aiHead.addEventListener('click', function() {
     var open = aiBody.classList.toggle('open');
+    aiHead.setAttribute('aria-expanded', open ? 'true' : 'false');
     aiHead.querySelector('.ai-head-desc').textContent = open ? 'クリックで閉じる' : 'クリックで開く';
     if (open) aiInput.focus();
   });

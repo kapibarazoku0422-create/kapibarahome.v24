@@ -878,6 +878,13 @@ Googleでログイン
     return res.end(entry.data);
   }
 
+  if (url === '/tool' || url === '/tools') {
+    const entry = ASSET_CACHE.get('tool.html');
+    if (!entry) { res.writeHead(404); return res.end('not found'); }
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' });
+    return res.end(entry.data);
+  }
+
   // YouTube 軽量プレイヤーページ (/ytw?v=VIDEO_ID)
   // カスタム動画プレイヤー（Invidious経由でbot検出回避）
   if (url.startsWith('/ytw')) {
