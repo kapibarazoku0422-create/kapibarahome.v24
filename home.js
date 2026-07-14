@@ -128,6 +128,14 @@ export function makeHomePage(encodeProxyUrl) {
     </span>
     <span style="margin-left:auto;color:#475569;font-size:18px">▶</span>
   </a>
+  <a class="game-link" href="https://neon-rift-tk7u.onrender.com/" target="_blank" rel="noopener" style="border-color:#ff2fb3">
+    <span class="game-icon">🚀</span>
+    <span class="game-text">
+      <span class="game-title" style="color:#5eefff">NEON <span style="color:#ff2fb3">RIFT</span></span>
+      <span class="game-desc">3Dで障害物を避けながら進む軽量ランゲーム</span>
+    </span>
+    <span style="margin-left:auto;color:#ff2fb3;font-size:18px">▶</span>
+  </a>
   <a class="game-link" href="/yt" style="border-color:#2d1a1a">
     <span class="game-icon">▶️</span>
     <span class="game-text">
