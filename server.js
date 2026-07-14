@@ -391,12 +391,13 @@ function runYtDlp(vid) {
   return new Promise((resolve, reject) => {
     const args = [
       '-j', '--no-warnings', '--no-playlist',
-      '--extractor-args', 'youtube:player_client=android_vr,web',
+      '--js-runtimes', 'node',
+      '--extractor-args', 'youtube:player_client=android_vr,web_safari',
       `https://www.youtube.com/watch?v=${vid}`,
     ];
     let bin = YTDLP_BIN, triedFallback = false;
     const launch = () => {
-      const proc = spawn(bin, args, { timeout: 30000 });
+      const proc = spawn(bin, args, { timeout: 60000 });
       let out = '', err = '';
       proc.stdout.on('data', d => { out += d; });
       proc.stderr.on('data', d => { err += d; });
@@ -1213,7 +1214,9 @@ Googleでログイン
           for (const v of data) {
             const id = v?.videoId;
             const seconds = Number(v?.lengthSeconds || 0);
-            if (!/^[A-Za-z0-9_-]{11}$/.test(id || '') || seen.has(id) || (seconds && seconds > 240)) continue;
+            // 縦型ライブや配信予定は録画Shortsプレイヤーでは再生できないため除外。
+            if (v?.liveNow || v?.isUpcoming || v?.premiereTimestamp) continue;
+            if (!/^[A-Za-z0-9_-]{11}$/.test(id || '') || seen.has(id) || !seconds || seconds > 240) continue;
             seen.add(id);
             const remoteThumb = (v.videoThumbnails || []).find(t => t.quality === 'medium')?.url
               || (v.videoThumbnails || []).slice(-1)[0]?.url

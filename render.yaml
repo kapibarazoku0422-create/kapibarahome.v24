@@ -3,7 +3,7 @@ services:
     name: kapibara-proxy
     runtime: node
     plan: free
-    buildCommand: python -m pip install --no-cache-dir yt-dlp && npm ci && npm run build
+    buildCommand: python -m pip install --no-cache-dir "yt-dlp[default]" && npm ci && npm run build
     startCommand: npm start
     autoDeploy: true
     healthCheckPath: /health
