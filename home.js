@@ -266,7 +266,7 @@ export function makeHomePage(encodeProxyUrl) {
         if (id) { location.href = '/ytw?v=' + btoa(id); return true; }
       }
       if (host === 'youtube.com') {
-        var sm = u.pathname.match(/^\/shorts\/([A-Za-z0-9_-]{11})/);
+        var sm = u.pathname.match(/^\\/shorts\\/([A-Za-z0-9_-]{11})/);
         if (sm) { location.href = '/ytw?v=' + btoa(sm[1]); return true; }
         if (u.pathname === '/watch') {
           var v = u.searchParams.get('v');
