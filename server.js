@@ -776,25 +776,14 @@ Googleでログイン
 </div></body></html>`);
   }
 
-  // プロキシ先サイトが location='/?...' のようなルート絶対URLへ移動しても、
-  // 暗号化済みの直近ベースURLから安全にプロキシ経路を復元する。
-  if (url.startsWith('/?')) {
-    const m = (req.headers.cookie || '').match(/(?:^|;\s*)kp_proxy_base=([^;]+)/);
-    if (m) {
-      try {
-        const base = unseal(decodeURIComponent(m[1]));
-        const next = new URL(url, base);
-        await assertPublicHost(next.hostname);
-        res.writeHead(302, { location: encodeProxyUrl(next.href), 'cache-control': 'no-store' });
-        return res.end();
-      } catch { /* 無効・期限切れ相当なら通常のホーム処理へ */ }
-    }
-  }
-
   // ホーム — 認証ガードの前で処理し常に200を返す（Replitヘルスチェック対応）
-  if (url === '/' || url === '/index.html') {
+  if (url === '/' || url.startsWith('/?') || url === '/index.html') {
     const sess = await getAuthSession(req);
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.writeHead(200, {
+      'content-type': 'text/html; charset=utf-8',
+      // 旧版の誤復元Cookieを確実に削除する。
+      'set-cookie': 'kp_proxy_base=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0',
+    });
     if (!sess) {
       return res.end('<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/auth/login"><meta charset="utf-8"><title>カピバラの学習サイト</title></head><body></body></html>');
     }
@@ -2042,11 +2031,6 @@ async function handleProxy(req, res) {
   // リダイレクト追跡中に蓄積したクッキー + 最終ホップのクッキーをまとめて返す
   const mergedSc = [...(Array.isArray(h['set-cookie']) ? h['set-cookie'] : h['set-cookie'] ? [h['set-cookie']] : [])];
   if (mergedSc.length) outHeaders['set-cookie'] = namespaceSetCookies(mergedSc, finalUrl.host);
-  if (isHtml) {
-    const baseCookie = `kp_proxy_base=${encodeURIComponent(seal(finalUrl.href))}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600`;
-    const existing = outHeaders['set-cookie'];
-    outHeaders['set-cookie'] = existing ? [...(Array.isArray(existing) ? existing : [existing]), baseCookie] : [baseCookie];
-  }
   outHeaders['access-control-allow-origin'] = '*';
 
   // キャッシュキー: GETかつ最終URLで
@@ -2058,9 +2042,7 @@ async function handleProxy(req, res) {
       const hit = cacheGet(cacheKey, ttl);
       if (hit) {
         upstream.body.resume();
-        const hitHeaders = { ...hit.headers };
-        if (isHtml && outHeaders['set-cookie']) hitHeaders['set-cookie'] = outHeaders['set-cookie'];
-        return sendBody(req, res, hit.status, hitHeaders, hit.body);
+        return sendBody(req, res, hit.status, hit.headers, hit.body);
       }
     }
 
