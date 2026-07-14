@@ -368,7 +368,7 @@ const URL_LEAK_HEADERS = new Set([
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 
 // yt-dlp 経由で動画情報＋ストリームURL（自IP署名なのでRange対応で確実に再生可）を取得
-const YTDLP_BIN = process.env.YTDLP_BIN || '/home/runner/workspace/.pythonlibs/bin/yt-dlp';
+const YTDLP_BIN = process.env.YTDLP_BIN || 'yt-dlp';
 const YTDLP_FALLBACK = 'yt-dlp'; // PATH 上のバイナリ（環境変化時の保険）
 const YTINFO_CACHE = new Map(); // vid -> { json, expires }
 const YTINFO_INFLIGHT = new Map(); // vid -> Promise（同一動画の重複起動を防ぐ）
@@ -520,9 +520,13 @@ async function fetchInvidiousInfo(vid) {
   return raceInv(h => tryInvidiousInstance(h, vid));
 }
 
-// yt-dlp の JSON から muxed (映像＋音声一体) ストリームを抽出して共通形式に整形
+// yt-dlp の JSON を共通形式へ整形。Shortsは映像と音声が分離されることが多いので、
+// muxedが無い場合はaudioTokenを付けてサーバー側ffmpeg合成へ渡す。
 function buildInfoFromYtDlp(data) {
-  const fmts = (data.formats || []).filter(f =>
+  const all = (data.formats || []).filter(f =>
+    f.url && (f.protocol === 'https' || f.protocol === 'http')
+  );
+  const fmts = all.filter(f =>
     f.url && (f.protocol === 'https' || f.protocol === 'http') &&
     f.vcodec && f.vcodec !== 'none' && f.acodec && f.acodec !== 'none'
   );
@@ -531,16 +535,38 @@ function buildInfoFromYtDlp(data) {
     if (am !== bm) return bm - am;
     return (a.height || 0) - (b.height || 0);
   });
-  const streams = fmts.map(f => ({
+  let streams = fmts.map(f => ({
     label: f.height ? f.height + 'p' : (f.format_note || '?'),
     token: seal(f.url),
     container: f.ext || 'mp4',
   }));
+  if (!streams.length) {
+    const audio = all
+      .filter(f => (!f.vcodec || f.vcodec === 'none') && f.acodec && f.acodec !== 'none')
+      .sort((a, b) => (b.abr || b.tbr || 0) - (a.abr || a.tbr || 0))[0];
+    const videos = all
+      .filter(f => f.vcodec && f.vcodec !== 'none' && (!f.acodec || f.acodec === 'none'))
+      .sort((a, b) => {
+        const am = fMp4(a), bm = fMp4(b);
+        return bm - am || (a.height || 0) - (b.height || 0);
+      });
+    if (audio) {
+      const audioToken = seal(audio.url);
+      streams = videos.map(f => ({
+        label: f.height ? f.height + 'p' : (f.format_note || '?'),
+        token: seal(f.url), audioToken, container: f.ext || 'mp4',
+      }));
+    }
+  }
   return {
     title: data.title || '', author: data.uploader || data.channel || '',
     authorId: data.channel_id || '', viewCount: data.view_count || 0,
     description: (data.description || '').slice(0, 800), streams,
   };
+}
+
+function fMp4(f) {
+  return f.ext === 'mp4' || String(f.vcodec || '').startsWith('avc') ? 1 : 0;
 }
 
 // Invidiousを短時間先行させ、遅い時だけyt-dlpを起動するヘッジ方式。
