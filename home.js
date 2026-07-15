@@ -121,6 +121,14 @@ export function makeHomePage(encodeProxyUrl) {
     </span>
     <span style="margin-left:auto;color:#475569;font-size:18px">▶</span>
   </a>
+  <a class="game-link" href="https://threed-cotb.onrender.com/" target="_blank" rel="noopener" style="border-color:#b8873b">
+    <span class="game-icon">🕶️</span>
+    <span class="game-text">
+      <span class="game-title" style="color:#f5c56b">カピバラ帝国記 — 長芋戦役</span>
+      <span class="game-desc">グラサンカピバラが帝国を築き、長芋族と戦う本格3DアクションRPG</span>
+    </span>
+    <span style="margin-left:auto;color:#b8873b;font-size:18px">▶</span>
+  </a>
   <a class="game-link" href="https://tawadhifens.onrender.com/" target="_blank" rel="noopener" style="border-color:#5b3b83">
     <span class="game-icon">🏰</span>
     <span class="game-text">
