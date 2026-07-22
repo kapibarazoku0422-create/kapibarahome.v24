@@ -129,6 +129,14 @@ export function makeHomePage(encodeProxyUrl) {
     </span>
     <span style="margin-left:auto;color:#b8873b;font-size:18px">▶</span>
   </a>
+  <a class="game-link" href="https://kapibara-board.onrender.com/" target="_blank" rel="noopener" style="border-color:#38bdf8">
+    <span class="game-icon">💬</span>
+    <span class="game-text">
+      <span class="game-title" style="color:#7dd3fc">Kapibara Board</span>
+      <span class="game-desc">好きな話をのんびり楽しめるコミュニティ掲示板</span>
+    </span>
+    <span style="margin-left:auto;color:#38bdf8;font-size:18px">▶</span>
+  </a>
   <a class="game-link" href="https://tawadhifens.onrender.com/" target="_blank" rel="noopener" style="border-color:#5b3b83">
     <span class="game-icon">🏰</span>
     <span class="game-text">
